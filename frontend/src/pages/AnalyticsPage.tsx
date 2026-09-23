@@ -10,10 +10,10 @@ import type { Ctx } from '../lib/ctx'
 import { pct } from '../lib/format'
 import { useT } from '../lib/i18n'
 
-function Section({ title, desc, children }: { title: string; desc: string; children: React.ReactNode }) {
+function Section({ title, hint, children, className = '' }: { title: string; hint?: string; children: React.ReactNode; className?: string }) {
   return (
-    <section className="space-y-3">
-      <div className="border-l-2 border-blue pl-3"><h2 className="text-[16px] font-semibold">{title}</h2><p className="max-w-3xl text-[13px] text-mute">{desc}</p></div>
+    <section className={`space-y-2 ${className}`}>
+      <div className="flex items-baseline gap-2"><h2 className="text-[15px] font-semibold">{title}</h2>{hint && <span className="text-[12px] text-mute">{hint}</span>}</div>
       {children}
     </section>
   )
@@ -29,13 +29,16 @@ export function AnalyticsPage({ ctx }: { ctx: Ctx }) {
   const timeline = useAsync(() => api.timeline(turbine), [turbine, tick])
   const curve = useAsync(() => api.powerCurve(turbine), [turbine])
   const name = (id: string) => (id === 'STATION' ? t('station') : id === 'T1' ? t('t1') : t('t2'))
+  const cov = (metrics.data?.coverage ?? []).filter((c) => c.turbine === turbine)
   return (
-    <main className="space-y-8 p-4">
-      <div className="flex flex-col gap-1"><span className="lbl">{t('f_object')}</span>
-        <div className="seg w-fit">{(['STATION', 'T1', 'T2'] as const).map((id) => <button key={id} className={turbine === id ? 'on' : ''} onClick={() => setTurbine(id)}>{name(id)}</button>)}</div></div>
+    <main className="space-y-5 p-4">
+      <div className="flex items-center gap-3">
+        <div className="seg w-fit">{(['STATION', 'T1', 'T2'] as const).map((id) => <button key={id} className={turbine === id ? 'on' : ''} onClick={() => setTurbine(id)}>{name(id)}</button>)}</div>
+        <span className="text-[12px] text-mute">{t('an_hint')}</span>
+      </div>
 
-      <Section title={t('an_acc')} desc={t('an_acc_d')}>
-        <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr]">
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Section title={t('an_acc')} hint={t('an_acc_h')}>
           <div className="panel !p-0">
             <table className="num w-full text-[13px]">
               <thead className="text-[10px] uppercase tracking-wider text-mute">
@@ -51,33 +54,34 @@ export function AnalyticsPage({ ctx }: { ctx: Ctx }) {
                   </tr>))}
               </tbody>
             </table>
-            {metrics.data?.note && <p className="px-3 py-2 text-[11px] text-mute">{metrics.data.note}</p>}
           </div>
-          <DailyErrorPanel daily={metrics.data?.daily ?? []} turbine={turbine} error={metrics.error} />
-        </div>
-      </Section>
+        </Section>
+        <Section title={t('p_daily')} hint={t('an_daily_h')}><DailyErrorPanel daily={metrics.data?.daily ?? []} turbine={turbine} error={metrics.error} bare /></Section>
+      </div>
 
-      <Section title={t('ev_title')} desc={t('ev_desc')}><EvidencePanel e={exps.data} /></Section>
-
-      <Section title={t('cov_title')} desc={t('cov_desc')}>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {(metrics.data?.coverage ?? []).filter((c) => c.turbine === turbine).map((c, i) => (
-            <div key={c.bucket} className="panel pop" style={{ animationDelay: `${i * 80}ms` }}>
-              <div className="text-[13px] text-mute">{c.bucket} · {t('cov_hit')}</div>
-              <div className={`num font-mono text-[26px] font-bold ${Math.abs(c.coverage - 0.8) <= 0.07 ? 'text-good' : 'text-warn'}`}>{Math.round(c.coverage * 100)}%</div>
-              <div className="text-[11px] text-mute">{t('cov_width')} {(c.width * ratedOf(turbine)).toFixed(2)} {t('mw')} · n={c.n}</div>
-            </div>))}
-        </div>
-      </Section>
-
-      <div className="grid gap-8 lg:grid-cols-2">
-        <Section title={t('an_phys')} desc={t('an_phys_d')}><PowerCurvePanel data={curve.data} error={curve.error} /></Section>
-        <Section title={t('an_data')} desc={t('an_data_d')}>
-          <DataReconcile d={data.data} error={data.error} />
-          <QualityPanel q={quality.data} error={quality.error} />
+      <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
+        <Section title={t('ev_title')} hint={t('ev_h')}><EvidencePanel e={exps.data} /></Section>
+        <Section title={t('cov_title')} hint={t('cov_h')}>
+          <div className="grid grid-cols-2 gap-3">
+            {cov.map((c, i) => (
+              <div key={c.bucket} className="panel pop" style={{ animationDelay: `${i * 80}ms` }}>
+                <div className="text-[12px] text-mute">{c.bucket}</div>
+                <div className={`num font-mono text-[28px] font-bold ${Math.abs(c.coverage - 0.8) <= 0.07 ? 'text-good' : 'text-warn'}`}>{Math.round(c.coverage * 100)}%</div>
+                <div className="text-[11px] text-mute">{t('cov_width')} {(c.width * ratedOf(turbine)).toFixed(1)} {t('mw')}</div>
+              </div>))}
+          </div>
         </Section>
       </div>
-      <Section title={t('an_test')} desc={t('an_test_d')}><TestPeriodPanel points={timeline.data ?? []} rated={ratedOf(turbine)} error={timeline.error} /></Section>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Section title={t('p_curve')} hint={t('an_phys_h')}><PowerCurvePanel data={curve.data} error={curve.error} bare /></Section>
+        <Section title={t('an_data')} hint={t('an_data_h')}><DataReconcile d={data.data} error={data.error} /></Section>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Section title={t('p_quality')} hint="wind_actuals_gaps"><QualityPanel q={quality.data} error={quality.error} bare /></Section>
+        <Section title={t('p_feb')} hint={t('an_test_h')}><TestPeriodPanel points={timeline.data ?? []} rated={ratedOf(turbine)} error={timeline.error} bare /></Section>
+      </div>
     </main>
   )
 }

@@ -32,7 +32,7 @@ export function DataReconcile({ d, error }: { d: DataSummary | null; error: stri
             </tr>))}
         </tbody>
       </table>
-      <p className="flex items-center gap-1.5 px-3 py-2 text-[11px] text-good"><CheckCircle2 size={12} />{t('dr_match')} · {d.storage} · {d.tz_source}</p>
+      <p className="flex items-center gap-1.5 px-3 py-2 text-[11px] text-good"><CheckCircle2 size={12} />{t('dr_match')}</p>
     </div>
   )
 }

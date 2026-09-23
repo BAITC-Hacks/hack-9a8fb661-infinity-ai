@@ -4,12 +4,12 @@ import { useT } from '../lib/i18n'
 import { usePalette } from '../lib/theme'
 
 /** Пропуски факта (wind_actuals_gaps): по турбинам и по месяцам. */
-export function QualityPanel({ q, error }: { q: QualitySummary | null; error: string | null }) {
+export function QualityPanel({ q, error, bare }: { q: QualitySummary | null; error: string | null; bare?: boolean }) {
   const { t } = useT()
   const c = usePalette()
   return (
     <section className="panel rise" style={{ animationDelay: '450ms' }}>
-      <div className="mb-3 flex items-baseline justify-between"><h2 className="text-[16px] font-semibold">{t('p_quality')}</h2></div>
+      <div className="mb-3 flex items-baseline justify-between"><h2 className={`text-[16px] font-semibold ${bare ? "hidden" : ""}`}>{t('p_quality')}</h2></div>
       {error ? <p className="text-[14px] text-bad">{t('err')}: {error}</p> : !q ? <div className="shimmer h-40 rounded-lg" /> : (
         <>
           <div className="mb-3 grid grid-cols-2 gap-2">

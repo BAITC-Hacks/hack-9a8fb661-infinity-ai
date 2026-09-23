@@ -37,7 +37,6 @@ export function EvidencePanel({ e }: { e: Experiments | null }) {
           })}
         </tbody>
       </table>
-      <p className="px-3 py-2 text-[11px] text-mute">{e.period} · MAE в долях Pном станции (× 5 = МВт) · Landry 2016 (GEFCom2014), Alessandrini 2015 (Analog Ensemble)</p>
     </div>
   )
 }

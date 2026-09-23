@@ -4,12 +4,12 @@ import { pct } from '../lib/format'
 import { useT } from '../lib/i18n'
 import { usePalette } from '../lib/theme'
 
-export function PowerCurvePanel({ data, error }: { data: PowerCurve | null; error: string | null }) {
+export function PowerCurvePanel({ data, error, bare }: { data: PowerCurve | null; error: string | null; bare?: boolean }) {
   const { t } = useT()
   const c = usePalette()
   return (
     <section className="panel rise" style={{ animationDelay: '350ms' }}>
-      <div className="mb-3 flex items-baseline justify-between"><h2 className="text-[16px] font-semibold">{t('p_curve')}</h2>
+      <div className="mb-3 flex items-baseline justify-between"><h2 className={`text-[16px] font-semibold ${bare ? "hidden" : ""}`}>{t('p_curve')}</h2>
         {data && <span className="mono num text-mute">{data.n_hours.toLocaleString('ru')} {t('hours_hist')}</span>}</div>
       {error ? <p className="text-[14px] text-bad">{t('err')}: {error}</p> : !data ? <div className="shimmer h-64 rounded-lg" /> : (
         <div className="h-64">

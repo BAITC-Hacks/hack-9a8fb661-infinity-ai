@@ -4,7 +4,7 @@ import { dayOf } from '../lib/format'
 import { useT } from '../lib/i18n'
 import { usePalette } from '../lib/theme'
 
-export function DailyErrorPanel({ daily, turbine, error }: { daily: DailyError[]; turbine: TurbineId; error: string | null }) {
+export function DailyErrorPanel({ daily, turbine, error, bare }: { daily: DailyError[]; turbine: TurbineId; error: string | null; bare?: boolean }) {
   const { t } = useT()
   const c = usePalette()
   const data = daily.filter((d) => d.turbine === turbine)
@@ -12,7 +12,7 @@ export function DailyErrorPanel({ daily, turbine, error }: { daily: DailyError[]
   const Sw = ({ col, l }: { col: string; l: string }) => <span className="flex items-center gap-1.5"><i className="size-2.5 rounded-sm" style={{ background: col }} />{l}</span>
   return (
     <section className="panel rise" style={{ animationDelay: '400ms' }}>
-      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2"><h2 className="text-[16px] font-semibold">{t('p_daily')}</h2>
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2"><h2 className={`text-[16px] font-semibold ${bare ? "hidden" : ""}`}>{t('p_daily')}</h2>
         <div className="flex gap-3 text-[12px] text-mute"><Sw col={c.base} l={t('base')} /><Sw col={c.blue} l={t('h24')} /><Sw col={c.warn} l={t('h48')} /></div></div>
       {error ? <p className="text-[14px] text-bad">{t('err')}: {error}</p> : !data.length ? <p className="py-6 text-[14px] text-mute">{t('no_days')}</p> : (
         <div className="h-64">

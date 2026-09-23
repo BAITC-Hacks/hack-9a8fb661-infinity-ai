@@ -13,3 +13,4 @@ data/app.db-*
 CLAUDE.md
 frontend/node_modules/
 frontend/dist/
+.env.wind

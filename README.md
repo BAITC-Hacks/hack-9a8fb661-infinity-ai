@@ -185,6 +185,16 @@ cd backend && pytest -q        # 20 тестов, без сети и ключе�
 MAE — в долях номинальной мощности. Факт по февралю организаторы не предоставили (данные до
 31.01.2026 23:50), поэтому февральские выпуски — прогноз без оценки.
 
+## Вклад команды: модель дата-инженера (`contrib/wind_hackathon_handoff/`)
+Отдельный пакет коллеги по команде: прогноз с 10-минутной детализацией (288 точек на 48 ч) и
+часовыми агрегатами, физическая кривая по паспорту + residual `HistGradientBoostingRegressor`,
+обучение только по полным часам (6 валидных 10-минуток), CLI `train / predict / replay`, DDL таблиц
+`wind_objects`, `wind_actuals`, `wind_actuals_gaps`, `wind_weather_forecasts`, `wind_power_forecasts`.
+Тесты: `cd contrib/wind_hackathon_handoff && python -m unittest backend.tests.test_wind_hackathon` (10 тестов).
+Основной сервис (`backend/`) использует те же таблицы данных; модель пакета — альтернативный
+вариант с 10-минутной детализацией. `backend/app/config.py` пакета взят из инфраструктуры проекта
+KEGOC (переиспользование конфигурации, не решения задачи). Пароли — только в `.env.wind` (не в git).
+
 ## Использованные внешние материалы
 - Данные: исторические CSV организаторов HackAlem AI (две турбины, 10-минутный шаг); выгрузка `wind_actuals` и справочник `wind_objects` (паспорт: Goldwind GW109/2500, 2,5 МВт, башня 80 м — [Samruk-Green, ВЭС «Нурлы»](https://samruk-green.kz/index.php/ru/projects/1047-20210219-133650)) подготовлены дата-инженером команды.
 - Погода: [Open-Meteo](https://open-meteo.com/) Previous Model Runs API (CC BY 4.0), без ключа.

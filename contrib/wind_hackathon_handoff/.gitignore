@@ -1,0 +1,4 @@
+.env.wind
+.venv/
+__pycache__/
+outputs/

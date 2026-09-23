@@ -1,0 +1,9 @@
+# Standalone hackathon runner; does not require FastAPI, PostgreSQL, Torch or TimesFM.
+numpy>=1.26,<3
+pandas>=2.2,<3
+scikit-learn>=1.4,<2
+joblib>=1.4,<2
+requests>=2.31,<3
+pydantic-settings>=2.9,<3
+python-dotenv>=1,<2
+tzdata>=2024.1

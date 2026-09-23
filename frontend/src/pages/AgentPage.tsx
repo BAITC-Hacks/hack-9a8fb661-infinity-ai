@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api/client'
 import { ChatView } from '../features/ChatView'
 import { PipelineRail } from '../features/PipelineRail'
-import { useAgentStream, type Msg } from '../hooks/useAgentStream'
+import { useAgentStream, type Msg, type Step } from '../hooks/useAgentStream'
 import { useAsync } from '../hooks/useAsync'
 import type { Ctx } from '../lib/ctx'
 import { useT } from '../lib/i18n'
@@ -18,7 +18,10 @@ const fresh = (): Conv => { const id = Math.random().toString(36).slice(2, 12); 
 export function AgentPage({ ctx }: { ctx: Ctx }) {
   const { t } = useT()
   const { issueDate, tick, llm } = ctx
-  const log = useAsync(() => api.log(issueDate), [issueDate, tick])
+  const [poll, setPoll] = useState(0)
+  useEffect(() => { const id = setInterval(() => setPoll((x) => x + 1), 15000); return () => clearInterval(id) }, [])
+  const log = useAsync(() => api.log(issueDate), [issueDate, tick, poll])
+  const [live, setLive] = useState<{ steps: Step[]; busy: boolean; thinking: boolean }>({ steps: [], busy: false, thinking: false })
   const [convs, setConvs] = useState<Conv[]>(() => { const c = load(); return c.length ? c : [fresh()] })
   const [active, setActive] = useState(convs[0].id)
   useEffect(() => store(convs), [convs])
@@ -47,17 +50,22 @@ export function AgentPage({ ctx }: { ctx: Ctx }) {
         <div className="flex h-[40px] items-center gap-2 border-b border-line bg-sunk px-3"><HardHat size={15} className="text-blue" />
           <span className="truncate text-[13px] font-semibold">{conv.title || t('chat_page')}</span>
           <span className="mono ml-auto hidden text-mute md:inline">{llm.replace('rules', 'правила')}</span></div>
-        <ChatPane key={conv.id} conv={conv} ctx={ctx} onSave={save} />
+        <ChatPane key={conv.id} conv={conv} ctx={ctx} onSave={save} onLive={setLive} />
       </section>
 
-      <div className="hidden min-h-0 overflow-y-auto xl:block"><PipelineRail log={log.data ?? []} issueDate={issueDate} /></div>
+      <div className="hidden min-h-0 overflow-y-auto xl:block"><PipelineRail log={log.data ?? []} issueDate={issueDate} live={live.steps} busy={live.busy} thinking={live.thinking} /></div>
     </main>
   )
 }
 
-function ChatPane({ conv, ctx, onSave }: { conv: Conv; ctx: Ctx; onSave: (id: string, m: Msg[]) => void }) {
+function ChatPane({ conv, ctx, onSave, onLive }: { conv: Conv; ctx: Ctx; onSave: (id: string, m: Msg[]) => void; onLive: (l: { steps: Step[]; busy: boolean; thinking: boolean }) => void }) {
   const { d, lang } = useT()
   const chat = useAgentStream(d, lang, ctx.refresh, { issue_date: ctx.issueDate, turbine: ctx.turbine },
     { session: conv.session, msgs: conv.msgs }, (m) => onSave(conv.id, m))
+  const last = chat.msgs[chat.msgs.length - 1]
+  const steps = last?.role === 'agent' ? last.steps : []
+  useEffect(() => { onLive({ steps, busy: chat.busy, thinking: chat.busy && chat.mode !== 'fast' }) },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [JSON.stringify(steps), chat.busy, chat.mode])
   return <ChatView {...chat} />
 }

@@ -108,24 +108,45 @@ outputs/      forecasts.csv, forecasts_test_period.csv, metrics.json
 ```
 
 ## Запуск
-### Вариант 1 — Docker (одна команда)
-```bash
-docker compose up --build
-```
-UI: http://localhost:3000 (вход `expert` / `infinity-demo`). При первом старте бэкенд сам
-прогоняет бэктест (~30 с) и пишет результаты в ClickHouse. Ключи не нужны.
+Нужно: Python 3.12, Node.js 20+, git. ClickHouse, GPU и ключи **не нужны**: по умолчанию — SQLite,
+погода из кеша `data/cache`, агент отвечает по правилам на реальных данных. Проверено на чистой копии.
 
-### Вариант 2 — без Docker
+### Вариант 1 — локально (≈ 3 минуты)
 ```bash
+git clone https://github.com/BAITC-Hacks/hack-9a8fb661-infinity-ai.git   # или: git pull origin main
+cd hack-9a8fb661-infinity-ai
 python3.12 -m venv .venv && source .venv/bin/activate
 pip install -r backend/requirements.txt
-cp .env.example .env                  # DB_BACKEND=sqlite, USE_MOCK_LLM=true
+cp .env.example .env                       # SQLite, офлайн-погода, вход expert / infinity-demo
+
 cd backend
-python -m app.cli backtest            # 58 выпусков: январь (бэктест) + 31.01–27.02 (тест)
-uvicorn app.main:app --port 8010      # API
-# в другом терминале:
-cd frontend && npm install && npm run dev   # UI: http://localhost:5173
+python -m app.cli backtest                 # ~1 мин: 58 выпусков (январь — бэктест, 31.01–27.02 — тест)
+python -m app.cli train-embeddings         # база знаний агента (эмбеддинги)
+uvicorn app.main:app --port 8010           # API; оставить запущенным
 ```
+Во втором терминале:
+```bash
+cd hack-9a8fb661-infinity-ai/frontend
+npm ci
+npm run dev                                # http://localhost:5180  (вход: expert / infinity-demo)
+```
+Проверка: `cd backend && pytest -q` — 23 теста.
+
+### Вариант 2 — Docker (одна команда, с ClickHouse)
+```bash
+docker compose up --build                  # UI: http://localhost:3000 (expert / infinity-demo)
+```
+При первом старте бэкенд сам прогоняет бэктест и обучает базу знаний.
+
+### По желанию
+- **Живая LLM:** в `.env` — `USE_MOCK_LLM=false` и `OPENAI_API_KEY=sk-…` (или `LLM_BASE_URL` для
+  своей модели на vLLM, см. `gpu/README.md`). Без этого агент работает по правилам.
+- **ClickHouse вместо SQLite:** `docker compose up -d clickhouse`, в `.env` — `DB_BACKEND=clickhouse`
+  и пароль `CLICKHOUSE_PASSWORD`. Таблицы `wind_objects`, `wind_actuals`, `wind_actuals_gaps` создаются
+  и заполняются при старте.
+- **Свежая погода из сети:** `WEATHER_OFFLINE=false` (иначе только кеш из репозитория).
+- **Показ команде в локальной сети:** `cd frontend && npm run serve:lan` → `http://<IP>:5180`
+  (в Wi-Fi хакатона может мешать изоляция клиентов).
 
 ## Вход и безопасность
 Интерфейс и API закрыты входом: логин/пароль из `.env` (`APP_LOGIN`, `APP_PASSWORD`), сессия —
@@ -148,7 +169,7 @@ cd frontend && npm install && npm run dev   # UI: http://localhost:5173
 | `LLM_MAX_TOKENS` | `600` | лимит вывода |
 | `DB_BACKEND` | `sqlite` | `clickhouse` или `sqlite`; если ClickHouse недоступен — автоматически SQLite |
 | `CLICKHOUSE_*` | см. `.env.example` | подключение к ClickHouse |
-| `WEATHER_OFFLINE` | `false` | `true` = только кеш `data/cache`, без сети |
+| `WEATHER_OFFLINE` | `true` | `true` = только кеш `data/cache`, без сети |
 | `APP_LOGIN` / `APP_PASSWORD` | `expert` / `infinity-demo` (пример) | вход в интерфейс; пустой пароль — без входа |
 | `APP_SECRET` | случайный | ключ подписи сессий |
 | `SOURCE_UTC_OFFSET` | `5` | часовой пояс исходных CSV (проверено корреляцией с Open-Meteo) |
@@ -171,9 +192,9 @@ cd backend && pytest -q        # 20 тестов, без сети и ключе�
 кривой мощности, метрики, API (валидация входа, агентный цикл, пропуск пересчёта без
 изменений, SSE-диалог в mock-режиме), справочник объектов.
 
-## Проверка без API-ключей (mock)
+## Проверка без API-ключей
 `USE_MOCK_LLM=true` (по умолчанию). Прогноз от LLM не зависит; сводки и ответы чата строятся
-по тем же инструментам агента, текст помечен `[mock]`. Погода берётся из `data/cache` (в Docker
+правилами по тем же инструментам агента на реальных данных (понимает опечатки, «завтра/вчера», казахский). Погода берётся из `data/cache` (в Docker
 `WEATHER_OFFLINE=true`), поэтому сеть тоже не нужна.
 
 ## Результаты (январский бэктест, выпуски 01.01–30.01.2026)

@@ -78,3 +78,7 @@ body { @apply bg-bg text-text font-sans text-base antialiased; transition: backg
 
 .chk { @apply flex cursor-pointer select-none items-center gap-1.5 text-[12px] text-mute; }
 .chk input { @apply size-3.5 accent-[var(--color-blue)]; }
+
+/* бегущая подсветка по шагам цикла агента */
+@keyframes sweep { 0%, 100% { background: transparent; } 8% { background: color-mix(in srgb, var(--color-blue) 14%, transparent); } 20% { background: transparent; } }
+.rail-sweep { animation-name: sweep; animation-iteration-count: infinite; animation-timing-function: ease-in-out; }

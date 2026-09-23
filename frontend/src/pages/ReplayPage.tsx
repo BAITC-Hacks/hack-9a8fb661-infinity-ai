@@ -10,7 +10,7 @@ import { useT } from '../lib/i18n'
 import { usePalette } from '../lib/theme'
 import { completedForecast } from '../lib/calc'
 
-const START = '2026-01-31', END = '2026-02-27'
+const START = '2026-01-01', END = '2026-02-27'
 const shift = (d: string, n: number) => { const x = new Date(`${d}T00:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10) }
 const days = (() => { const out: string[] = []; for (let d = START; d <= END; d = shift(d, 1)) out.push(d); return out })()
 
@@ -99,7 +99,7 @@ export function ReplayPage({ ctx }: { ctx: Ctx }) {
             {days.map((d, i) => (
               <button key={d} onClick={() => setIdx(i)} title={ruDate(d)} className="group flex flex-col items-center">
                 <span className={`z-10 rounded-full transition-all ${i === idx ? 'size-4 bg-blue ring-4 ring-blue/25' : i < idx ? 'size-2.5 bg-blue' : 'size-2.5 bg-line group-hover:bg-mute'}`} />
-                {(i === 0 || i === days.length - 1 || i === idx || i % 7 === 1) && <span className={`mono mt-1.5 ${i === idx ? 'font-semibold text-text' : 'text-mute'}`}>{ruDate(d)}</span>}
+                {(i === 0 || i === days.length - 1 || i === idx || i % 10 === 0) && <span className={`mono mt-1.5 ${i === idx ? 'font-semibold text-text' : 'text-mute'}`}>{ruDate(d)}</span>}
               </button>))}
           </div>
           <div className="mt-1 text-center text-[11px] text-blue">{t('rp_window', { a: ruDate(shift(issue, 0)), b: ruDate(shift(issue, 2)) })}</div>

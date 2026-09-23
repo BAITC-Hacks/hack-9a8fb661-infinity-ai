@@ -37,6 +37,7 @@ export const api = {
   objects: () => request<WindObject[]>('/api/objects'),
   quality: () => request<QualitySummary>('/api/quality'),
   data: () => request<DataSummary>('/api/data'),
+  insight: (issue_date: string, turbine: TurbineId, lang: string) => request<{ text: string; source: string }>(`/api/insight?${q({ issue_date, turbine, lang })}`),
   experiments: () => request<Experiments>('/api/experiments'),
   analogs: (issue_date: string, turbine: TurbineId) => request<Analogs>(`/api/analogs?${q({ issue_date, turbine })}`),
   alerts: (issue_date: string, turbine: TurbineId) => request<Alert[]>(`/api/alerts?${q({ issue_date, turbine })}`),

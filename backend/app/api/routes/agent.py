@@ -111,3 +111,35 @@ def report(fmt: str, body: ReportIn):
         raise HTTPException(404, "Формат: docx или xlsx")
     name = f"infinity_{body.turbine}_{body.issue_date}.{fmt}"
     return Response(data, media_type=mime, headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@router.get("/insight")
+def insight(issue_date: str = Depends(issue_date_param), turbine: str = Query("STATION", pattern="^(STATION|T1|T2)$"),
+            lang: str = Query("ru", pattern="^(ru|kk)$")):
+    """ИИ-анализ выпуска, формируется автоматически: 3 коротких пункта по прогнозу и уведомлениям.
+    Одинаковые запросы берутся из кеша LLM; без LLM — сводка агента, построенная правилами."""
+    from app.services import llm
+    from app.services.alerts import build_alerts
+    from app.services.chat import _forecast_digest
+    dg = _forecast_digest(issue_date, turbine)
+    if "error" in dg:
+        raise HTTPException(404, dg["error"])
+    fallback = (dg.get("summary") or "").replace("[mock] ", "")
+    if llm.is_mock():
+        return {"text": fallback, "source": "rules"}
+    al = [a["text"] for a in build_alerts(issue_date, turbine)[:5]]
+    rated = 5.0 if turbine == "STATION" else 2.5
+    prompt = (f"Данные прогноза (мощность — доля Pном, Pном = {rated} МВт; время UTC, местное = UTC+5): "
+              f"{json.dumps({k: dg[k] for k in ('issue_date', 'mean_p', 'max', 'min', 'every_6h')}, ensure_ascii=False, default=str)}. "
+              f"Уведомления: {json.dumps(al, ensure_ascii=False)}. "
+              "Дай анализ для диспетчера: ровно 3 коротких пункта «- …» (итог дня в МВт, главный риск с окном времени "
+              "по Алматы, рекомендация). Только цифры из данных, без вступления.")
+    lang_name = "казахском" if lang == "kk" else "русском"
+    try:
+        msg = llm.chat([{"role": "system", "content": f"Ты инженер-аналитик ВЭС. Отвечай на {lang_name} языке, кратко."},
+                        {"role": "user", "content": prompt}], strong=False, mode="fast")
+        text = (msg.get("content") or "").strip()
+        return {"text": text or fallback, "source": llm.provider().split(" ")[0]}
+    except Exception as e:  # LLM недоступна — сводка по правилам
+        log.warning("insight fallback: %s", e)
+        return {"text": fallback, "source": "rules"}

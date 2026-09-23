@@ -13,7 +13,7 @@ import type { Ctx } from '../lib/ctx'
 const shift = (d: string, n: number) => { const x = new Date(`${d}T00:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10) }
 
 export function ForecastPage({ ctx }: { ctx: Ctx }) {
-  const { t } = useT()
+  const { t, lang } = useT()
   const { turbine, setTurbine, issueDate, setIssueDate, tick, ratedOf, llm } = ctx
   const [horizon, setHorizon] = useState<24 | 48>(48)
   const [view, setView] = useState<View>('chart')
@@ -28,6 +28,7 @@ export function ForecastPage({ ctx }: { ctx: Ctx }) {
     .map((d) => api.forecast(d, turbine).then((f) => ({ issue_date: d, rows: f.rows.map((r) => ({ target_time: r.target_time, p_hat: r.p_hat })) })).catch(() => null))), [issueDate, turbine, nPrev, tick])
   const passport = useAsync(() => api.passport(issueDate), [issueDate, tick])
   const alerts = useAsync(() => api.alerts(issueDate, turbine), [issueDate, turbine, tick])
+  const insight = useAsync(() => api.insight(issueDate, turbine, lang), [issueDate, turbine, lang, tick])
 
   const rated = ratedOf(turbine)
   const rows = useMemo(() => (forecast.data?.rows ?? []).filter((r) => r.lead_hours <= horizon), [forecast.data, horizon])
@@ -45,7 +46,7 @@ export function ForecastPage({ ctx }: { ctx: Ctx }) {
           <ChartPanel rows={rows} weather={weather.data ?? []} prevWeather={prevWeather.data ?? []} rated={rated} turbine={turbine} issueDate={issueDate} horizon={horizon}
             view={view} loading={forecast.loading} error={forecast.error} band={band} showFact={mode === 'eval'} prev={prevList} />
           <div className="space-y-3">
-            <AlertsPanel alerts={alerts.data ?? []} summary={forecast.data?.run.summary ?? null} passport={passport.data} llm={llm} loading={alerts.loading} />
+            <AlertsPanel alerts={alerts.data ?? []} summary={insight.data?.text ?? null} summaryLoading={insight.loading} passport={passport.data} llm={llm} loading={alerts.loading} />
           </div>
         </div>
         <details className="group">

@@ -1,7 +1,8 @@
-import { AlertTriangle, Bot, Snowflake, TrendingDown, TrendingUp, Wind, WindArrowDown } from 'lucide-react'
+import { AlertTriangle, Bot, Sparkles, Snowflake, TrendingDown, TrendingUp, Wind, WindArrowDown } from 'lucide-react'
 import type { Alert, Passport } from '../api/types'
 import { ddmm, hhmm } from '../lib/format'
 import { llmLabel, useT } from '../lib/i18n'
+import { Markdown } from './Markdown'
 import { PassportCard } from './PassportCard'
 
 const ICON: Record<Alert['kind'], React.ReactNode> = {
@@ -11,7 +12,7 @@ const ICON: Record<Alert['kind'], React.ReactNode> = {
 const TONE: Record<Alert['level'], string> = { critical: 'border-bad/60 text-bad', warn: 'border-warn/60 text-warn', info: 'border-blue/50 text-blue' }
 
 /** Правая колонка: вывод агента по выпуску и уведомления (резкие изменения, штиль, риски, решения агента). */
-export function AlertsPanel({ alerts, summary, passport, llm, loading }: { alerts: Alert[]; summary: string | null; passport: Passport | null; llm: string; loading: boolean }) {
+export function AlertsPanel({ alerts, summary, summaryLoading, passport, llm, loading }: { alerts: Alert[]; summary: string | null; summaryLoading?: boolean; passport: Passport | null; llm: string; loading: boolean }) {
   const { t } = useT()
   const text = (summary ?? '').replace(/\[mock\]\s*/g, '')
   return (
@@ -21,10 +22,11 @@ export function AlertsPanel({ alerts, summary, passport, llm, loading }: { alert
         <span className="mono ml-auto flex items-center gap-1.5 text-mute"><i className="dot size-1.5 rounded-full bg-good" />{t('live')} · {llmLabel(llm.split(' ')[0], t)}</span>
       </div>
       <div className="scroll-thin max-h-[520px] space-y-2 overflow-y-auto p-2">
+        {summaryLoading && !text && <div className="flex items-center gap-2 rounded-md border border-line bg-sunk px-3 py-2.5 text-[12px] text-mute"><Sparkles size={13} className="animate-pulse text-curve" />{t('ai_working')}</div>}
         {text && (
-          <div className="pop rounded-md border border-line bg-sunk px-3 py-2.5">
-            <div className="lbl mb-1">{t('agent_summary')}</div>
-            <details className="group"><summary className="cursor-pointer list-none text-[13px] leading-relaxed"><span className="line-clamp-2 group-open:line-clamp-none">{text}</span></summary></details>
+          <div className="pop rounded-md border border-curve/40 bg-sunk px-3 py-2.5">
+            <div className="lbl mb-1 flex items-center gap-1.5 text-curve"><Sparkles size={12} />{t('ai_insight')}</div>
+            <div className="text-[13px] leading-relaxed"><Markdown text={text} /></div>
           </div>)}
         {loading && !alerts.length && <div className="shimmer h-16 rounded-md" />}
         {!loading && !alerts.length && <p className="px-2 py-4 text-[13px] text-mute">{t('no_alerts')}</p>}

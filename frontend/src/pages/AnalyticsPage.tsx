@@ -1,5 +1,6 @@
 import { api } from '../api/client'
 import { DailyErrorPanel } from '../features/DailyErrorPanel'
+import { DataReconcile } from '../features/DataReconcile'
 import { PowerCurvePanel } from '../features/PowerCurvePanel'
 import { QualityPanel } from '../features/QualityPanel'
 import { TestPeriodPanel } from '../features/TestPeriodPanel'
@@ -22,6 +23,7 @@ export function AnalyticsPage({ ctx }: { ctx: Ctx }) {
   const { turbine, setTurbine, ratedOf, tick } = ctx
   const metrics = useAsync(api.metrics, [tick])
   const quality = useAsync(api.quality, [])
+  const data = useAsync(api.data, [])
   const timeline = useAsync(() => api.timeline(turbine), [turbine, tick])
   const curve = useAsync(() => api.powerCurve(turbine), [turbine])
   const name = (id: string) => (id === 'STATION' ? t('station') : id === 'T1' ? t('t1') : t('t2'))
@@ -55,7 +57,10 @@ export function AnalyticsPage({ ctx }: { ctx: Ctx }) {
 
       <div className="grid gap-8 lg:grid-cols-2">
         <Section title={t('an_phys')} desc={t('an_phys_d')}><PowerCurvePanel data={curve.data} error={curve.error} /></Section>
-        <Section title={t('an_data')} desc={t('an_data_d')}><QualityPanel q={quality.data} error={quality.error} /></Section>
+        <Section title={t('an_data')} desc={t('an_data_d')}>
+          <DataReconcile d={data.data} error={data.error} />
+          <QualityPanel q={quality.data} error={quality.error} />
+        </Section>
       </div>
       <Section title={t('an_test')} desc={t('an_test_d')}><TestPeriodPanel points={timeline.data ?? []} rated={ratedOf(turbine)} error={timeline.error} /></Section>
     </main>

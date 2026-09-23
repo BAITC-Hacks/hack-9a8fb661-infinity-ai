@@ -129,3 +129,12 @@ export interface Alert {
   delta_mw?: number
   delta_pct?: number
 }
+
+export interface DataObject {
+  object_id: number; name: string
+  rows_10min: number; expected_10min: number; missing_10min: number
+  gaps: number; gap_slots: number | null; gap_hours: number
+  from: string | null; to: string | null
+  hours: number; downtime_hours: number; train_hours: number; train_rows: number; train_from: string | null
+}
+export interface DataSummary { storage: string; tz_source: string; objects: DataObject[] }

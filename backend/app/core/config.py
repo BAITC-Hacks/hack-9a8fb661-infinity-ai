@@ -79,3 +79,8 @@ VLLM_MODEL = os.getenv("VLLM_MODEL", "qwen")
 
 CORS_ORIGINS = [o.strip() for o in os.getenv(
     "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5180,http://127.0.0.1:5180").split(",") if o.strip()]
+
+# Вход в интерфейс: пустой APP_PASSWORD — вход отключён
+APP_LOGIN = os.getenv("APP_LOGIN", "admin")
+APP_PASSWORD = os.getenv("APP_PASSWORD", "")
+APP_SECRET = os.getenv("APP_SECRET", "")

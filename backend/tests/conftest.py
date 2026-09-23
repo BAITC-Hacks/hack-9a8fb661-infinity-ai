@@ -6,7 +6,7 @@ from pathlib import Path
 _tmp = Path(tempfile.mkdtemp(prefix="wind-tests-"))
 os.environ.update({
     "USE_MOCK_LLM": "true", "OPENAI_API_KEY": "", "LLM_BASE_URL": "",
-    "WEATHER_OFFLINE": "true", "DB_BACKEND": "sqlite",
+    "WEATHER_OFFLINE": "true", "DB_BACKEND": "sqlite", "APP_PASSWORD": "",
     "DB_PATH": str(_tmp / "test.db"), "OUTPUT_DIR": str(_tmp / "outputs"),
 })
 

@@ -4,8 +4,9 @@ import * as THREE from 'three'
 import type { WindObject } from '../api/types'
 import { useT } from '../lib/i18n'
 import { usePalette } from '../lib/theme'
+import { buildTurbine } from '../lib/turbine3d'
 
-interface Props { objects: WindObject[]; wind: number | null; direction: number | null; power: number | null }
+interface Props { objects: WindObject[]; wind: number | null; direction: number | null; power: number | null; selected?: number | null; onSelect?: (id: number) => void }
 
 export const FALLBACK: WindObject[] = [
   { object_id: 1, name: 'Нурлы — турбина 1', latitude: 43.645138889, longitude: 78.535611111, rated_power_mw: 2.5, tower_height_m: 80, rotor_diameter_m: 109, turbine_model: 'Goldwind GW109/2500', metadata_source_url: '' },
@@ -13,7 +14,7 @@ export const FALLBACK: WindObject[] = [
 ]
 
 /** Спутниковая карта с турбинами и 3D-сцена площадки: лопасти крутятся по ветру из прогноза. */
-export function SiteMap({ objects, wind, direction, power }: Props) {
+export function SiteMap({ objects, wind, direction, power, selected, onSelect }: Props) {
   const { t } = useT()
   const objs = objects.length ? objects : FALLBACK
   const spinSec = wind == null || wind < 2.5 ? 0 : Math.max(1.2, 12 / wind)
@@ -24,7 +25,7 @@ export function SiteMap({ objects, wind, direction, power }: Props) {
         <span className="mono ml-auto text-mute">{t('map_hint')} · {wind == null ? '—' : `${wind.toFixed(1)} м/с`}{direction == null ? '' : ` · ${Math.round(direction)}°`}</span>
       </div>
       <div className="grid md:grid-cols-2">
-        <LeafletMap objs={objs} spinSec={spinSec} direction={direction} />
+        <LeafletMap objs={objs} spinSec={spinSec} direction={direction} selected={selected ?? null} onSelect={onSelect} />
         <Scene objs={objs} wind={wind ?? 0} direction={direction ?? 0} power={power ?? 0} />
       </div>
     </section>
@@ -44,7 +45,7 @@ function turbineIcon(spinSec: number, label: string, color: string) {
   })
 }
 
-function LeafletMap({ objs, spinSec, direction }: { objs: WindObject[]; spinSec: number; direction: number | null }) {
+function LeafletMap({ objs, spinSec, direction, selected, onSelect }: { objs: WindObject[]; spinSec: number; direction: number | null; selected: number | null; onSelect?: (id: number) => void }) {
   const { t } = useT()
   const ref = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
@@ -69,9 +70,10 @@ function LeafletMap({ objs, spinSec, direction }: { objs: WindObject[]; spinSec:
     const m = map.current; if (!m) return
     const layer = L.layerGroup().addTo(m)
     objs.forEach((o) => {
-      L.circle([o.latitude, o.longitude], { radius: (o.rotor_diameter_m ?? 109) / 2, color: c.blue, weight: 1, fillOpacity: 0.08, dashArray: '4 4' }).addTo(layer)
-      L.marker([o.latitude, o.longitude], { icon: turbineIcon(spinSec, `T${o.object_id}`, c.blue) })
-        .bindTooltip(`${o.name} · ${o.rated_power_mw ?? 2.5} МВт · ${o.tower_height_m ?? 80} м`).addTo(layer)
+      const sel = selected === o.object_id
+      L.circle([o.latitude, o.longitude], { radius: (o.rotor_diameter_m ?? 109) / 2, color: sel ? c.data : c.blue, weight: sel ? 2 : 1, fillOpacity: sel ? 0.18 : 0.08, dashArray: '4 4' }).addTo(layer)
+      L.marker([o.latitude, o.longitude], { icon: turbineIcon(spinSec, `T${o.object_id}`, sel ? c.data : c.blue) })
+        .bindTooltip(`${o.name} · ${o.rated_power_mw ?? 2.5} МВт · ${o.tower_height_m ?? 80} м`).on('click', () => onSelect?.(o.object_id)).addTo(layer)
     })
     if (objs.length >= 2) {
       const a = objs[0], b = objs[1]
@@ -85,7 +87,7 @@ function LeafletMap({ objs, spinSec, direction }: { objs: WindObject[]; spinSec:
         html: `<svg viewBox="0 0 60 60" style="transform:rotate(${direction + 180}deg)"><path d="M30 8 L36 26 L30 22 L24 26 Z" fill="${c.blue}"/><circle cx="30" cy="30" r="27" fill="none" stroke="${c.blue}" stroke-opacity=".35" stroke-dasharray="3 5"/></svg>` }) }).addTo(layer)
     }
     return () => { layer.remove() }
-  }, [objs, spinSec, direction, c.blue])
+  }, [objs, spinSec, direction, selected, onSelect, c.blue, c.data])
   return (
     <div className="relative">
       <div ref={ref} className="h-[520px] w-full" />
@@ -176,25 +178,13 @@ function Scene({ objs, wind, direction, power }: { objs: WindObject[]; wind: num
     const streaks = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.35, 0.35), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.55 }), N_WIND)
     const wp = Array.from({ length: N_WIND }, () => new THREE.Vector3((Math.random() - 0.5) * 1400, 15 + Math.random() * 150, (Math.random() - 0.5) * 1400))
     scene.add(streaks)
-    const white = new THREE.MeshStandardMaterial({ color: 0xf1f3f5, roughness: 0.55 })
-    const accent = new THREE.MeshStandardMaterial({ color: new THREE.Color(c.blue), roughness: 0.5 })
     const rotors: THREE.Group[] = [], nacelles: THREE.Group[] = []
     objs.forEach((o) => {
       const [x, z] = toXZ(o)
       road(x, z, bx, bz)
-      const h = o.tower_height_m ?? 80, r = (o.rotor_diameter_m ?? 109) / 2
-      const g = new THREE.Group(); g.position.set(x, noise(x, z), z)
-      const pad = new THREE.Mesh(new THREE.CylinderGeometry(9, 9, 0.6, 32), new THREE.MeshStandardMaterial({ color: '#b9b2a4', roughness: 1 })); pad.position.y = 0.3; g.add(pad)
-      const tower = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 3.2, h, 24), white); tower.position.y = h / 2; tower.castShadow = true; g.add(tower)
-      const nac = new THREE.Group(); nac.position.y = h
-      const body = new THREE.Mesh(new THREE.BoxGeometry(12, 5, 5), white); body.castShadow = true; nac.add(body)
-      const hub = new THREE.Group(); hub.position.x = 7
-      hub.add(new THREE.Mesh(new THREE.SphereGeometry(2.2, 16, 16), accent))
-      for (let i = 0; i < 3; i++) {
-        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.8, r, 3.2), white); blade.position.y = r / 2; blade.castShadow = true
-        const pivot = new THREE.Group(); pivot.add(blade); pivot.rotation.x = (i * 2 * Math.PI) / 3; hub.add(pivot)
-      }
-      nac.add(hub); g.add(nac); scene.add(g); rotors.push(hub); nacelles.push(nac)
+      const pad = new THREE.Mesh(new THREE.CylinderGeometry(9, 9, 0.6, 32), new THREE.MeshStandardMaterial({ color: '#b9b2a4', roughness: 1 })); pad.position.set(x, noise(x, z) + 0.3, z); scene.add(pad)
+      const tb = buildTurbine(o.tower_height_m ?? 80, o.rotor_diameter_m ?? 109, c.blue)
+      tb.group.position.set(x, noise(x, z), z); scene.add(tb.group); rotors.push(tb.rotor); nacelles.push(tb.nacelle)
     })
     road(-700, 600, bx, bz, 7); road(bx, bz, 700, -500, 7)
 

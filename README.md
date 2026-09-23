@@ -112,7 +112,7 @@ outputs/      forecasts.csv, forecasts_test_period.csv, metrics.json
 ```bash
 docker compose up --build
 ```
-UI: http://localhost:3000 · API: http://localhost:8010/api/docs. При первом старте бэкенд сам
+UI: http://localhost:3000 (вход `expert` / `infinity-demo`). При первом старте бэкенд сам
 прогоняет бэктест (~30 с) и пишет результаты в ClickHouse. Ключи не нужны.
 
 ### Вариант 2 — без Docker
@@ -127,6 +127,13 @@ uvicorn app.main:app --port 8010      # API
 cd frontend && npm install && npm run dev   # UI: http://localhost:5173
 ```
 
+## Вход и безопасность
+Интерфейс и API закрыты входом: логин/пароль из `.env` (`APP_LOGIN`, `APP_PASSWORD`), сессия —
+подписанная HMAC-SHA256 cookie (HttpOnly, SameSite=Strict, 12 ч). Защита от перебора: 5 попыток
+в минуту с IP. Заголовки `X-Frame-Options: DENY`, `nosniff`. Документация API скрыта при включённом входе.
+**Для проверки экспертами:** в `.env.example` и `docker-compose.yml` — `expert` / `infinity-demo`.
+Пустой `APP_PASSWORD` отключает вход (локальная разработка, тесты). Пароль ClickHouse — только в `.env`.
+
 ## Параметры окружения (.env)
 | Переменная | По умолчанию | Смысл |
 |---|---|---|
@@ -140,6 +147,8 @@ cd frontend && npm install && npm run dev   # UI: http://localhost:5173
 | `DB_BACKEND` | `sqlite` | `clickhouse` или `sqlite`; если ClickHouse недоступен — автоматически SQLite |
 | `CLICKHOUSE_*` | см. `.env.example` | подключение к ClickHouse |
 | `WEATHER_OFFLINE` | `false` | `true` = только кеш `data/cache`, без сети |
+| `APP_LOGIN` / `APP_PASSWORD` | `expert` / `infinity-demo` (пример) | вход в интерфейс; пустой пароль — без входа |
+| `APP_SECRET` | случайный | ключ подписи сессий |
 | `SOURCE_UTC_OFFSET` | `5` | часовой пояс исходных CSV (проверено корреляцией с Open-Meteo) |
 
 ## Проверка основного сценария

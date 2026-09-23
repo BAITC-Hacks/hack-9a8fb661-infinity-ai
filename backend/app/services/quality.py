@@ -17,6 +17,8 @@ def gaps_df() -> pd.DataFrame:
             return pd.DataFrame(columns=["turbine", "first_missing", "last_missing", "missing_hours"])
         df = pd.read_csv(path)
     df = df.copy()
+    if "missing_slots" not in df:
+        df["missing_slots"] = (df["missing_hours"] * 6).round().astype(int)
     shift = pd.Timedelta(hours=config.SOURCE_UTC_OFFSET)
     for c in ("first_missing", "last_missing"):
         df[c] = (pd.to_datetime(df[c]) - shift).dt.tz_localize("UTC")

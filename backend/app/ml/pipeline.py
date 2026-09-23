@@ -104,7 +104,7 @@ class Forecaster:
             df = self.training_frame(turbine, until)
         curve = WindPowerModel().curve.fit(df["v_eq"], df["power"])
         pts = df.sample(min(n_points, len(df)), random_state=0)
-        return {"turbine": turbine, "n_hours": int(len(df)), "curve": curve.table(),
+        return {"turbine": turbine, "n_hours": int(df["time"].nunique()), "curve": curve.table(),
                 "points": [{"v": round(float(v), 2), "p": round(float(p), 3)}
                            for v, p in zip(pts["v_eq"], pts["power"])]}
 

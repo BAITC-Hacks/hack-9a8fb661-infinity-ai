@@ -1,10 +1,10 @@
-import { ChevronLeft, Moon, Sun } from 'lucide-react'
+import { ChevronLeft, LogOut, Moon, Sun } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useT } from '../../lib/i18n'
 import { setPrefs, usePrefs } from '../../lib/prefs'
 
 /** Шапка 42px: назад · заголовок раздела · контекст объёма · язык · тема · часы. */
-export function TopBar({ ctx }: { ctx: string }) {
+export function TopBar({ ctx, user, onLogout }: { ctx: string; user: string; onLogout: () => void }) {
   const { t } = useT()
   const { lang, theme } = usePrefs()
   const [now, setNow] = useState(new Date())
@@ -26,6 +26,7 @@ export function TopBar({ ctx }: { ctx: string }) {
         className="grid size-7 place-items-center rounded-lg border border-line text-mute transition-all hover:rotate-12 hover:border-blue hover:text-text">
         {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
       </button>
+      {user !== 'local' && <button onClick={onLogout} title={t('logout')} className="flex h-7 items-center gap-1.5 rounded-lg border border-line px-2 text-[12px] text-mute hover:border-blue hover:text-text"><LogOut size={13} />{user}</button>}
     </header>
   )
 }

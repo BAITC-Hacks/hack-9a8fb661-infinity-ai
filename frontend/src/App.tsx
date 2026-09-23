@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { api } from './api/client'
 import type { TurbineId } from './api/types'
 import { Sidebar } from './components/layout/Sidebar'
@@ -9,11 +9,25 @@ import type { Ctx } from './lib/ctx'
 import { useT } from './lib/i18n'
 import { usePage } from './lib/router'
 import { AgentPage } from './pages/AgentPage'
+import { LoginPage } from './pages/LoginPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import { ForecastPage } from './pages/ForecastPage'
 import { MapPage } from './pages/MapPage'
 
 export default function App() {
+  const [user, setUser] = useState<string | null | undefined>(undefined)
+  useEffect(() => {
+    api.me().then((r) => setUser(r.user)).catch(() => setUser(null))
+    const h = () => setUser(null)
+    window.addEventListener('unauthorized', h)
+    return () => window.removeEventListener('unauthorized', h)
+  }, [])
+  if (user === undefined) return null
+  if (user === null) return <LoginPage onLogin={setUser} />
+  return <Shell user={user} onLogout={() => { api.logout().finally(() => setUser(null)) }} />
+}
+
+function Shell({ user, onLogout }: { user: string; onLogout: () => void }) {
   const { t } = useT()
   const page = usePage()
   const [turbine, setTurbine] = useState<TurbineId>('STATION')
@@ -41,7 +55,7 @@ export default function App() {
   return (
     <div className="min-h-full pl-14">
       <Sidebar onRun={run} running={running} runMsg={runMsg} />
-      <TopBar ctx={ctxLine} />
+      <TopBar ctx={ctxLine} user={user} onLogout={onLogout} />
       {page === 'forecast' && <ForecastPage ctx={ctx} />}
       {page === 'map' && <MapPage ctx={ctx} />}
       {page === 'analytics' && <AnalyticsPage ctx={ctx} />}

@@ -1,4 +1,4 @@
-import { BarChart3, Bot, CalendarClock, LineChart, Loader2, Map, RefreshCw } from 'lucide-react'
+import { Bot, Database, CalendarClock, LineChart, Loader2, Map, RefreshCw } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useT } from '../../lib/i18n'
 import { navigate, usePage, type Page } from '../../lib/router'
@@ -13,7 +13,7 @@ export function Sidebar(p: Props) {
     { id: 'forecast', icon: <LineChart size={18} />, label: t('nav_forecast') },
     { id: 'replay', icon: <CalendarClock size={18} />, label: t('nav_replay') },
     { id: 'map', icon: <Map size={18} />, label: t('nav_map') },
-    { id: 'analytics', icon: <BarChart3 size={18} />, label: t('nav_analytics') },
+    { id: 'data', icon: <Database size={18} />, label: t('nav_data') },
     { id: 'agent', icon: <Bot size={18} />, label: t('nav_agent') },
   ]
   return (

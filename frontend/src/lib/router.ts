@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
 
-export type Page = 'forecast' | 'replay' | 'map' | 'analytics' | 'agent'
-const PAGES: Page[] = ['forecast', 'replay', 'map', 'analytics', 'agent']
+export type Page = 'forecast' | 'replay' | 'map' | 'data' | 'agent'
+const PAGES: Page[] = ['forecast', 'replay', 'map', 'data', 'agent']
 
 const read = (): Page => {
   const h = location.hash.replace(/^#\/?/, '') as Page

@@ -10,7 +10,7 @@ import { useT } from './lib/i18n'
 import { usePage } from './lib/router'
 import { AgentPage } from './pages/AgentPage'
 import { LoginPage } from './pages/LoginPage'
-import { AnalyticsPage } from './pages/AnalyticsPage'
+import { DataPage } from './pages/DataPage'
 import { ForecastPage } from './pages/ForecastPage'
 import { MapPage } from './pages/MapPage'
 import { ReplayPage } from './pages/ReplayPage'
@@ -60,7 +60,7 @@ function Shell({ user, onLogout }: { user: string; onLogout: () => void }) {
       {page === 'forecast' && <ForecastPage ctx={ctx} />}
       {page === 'replay' && <ReplayPage ctx={ctx} />}
       {page === 'map' && <MapPage ctx={ctx} />}
-      {page === 'analytics' && <AnalyticsPage ctx={ctx} />}
+      {page === 'data' && <DataPage ctx={ctx} />}
       {page === 'agent' && <AgentPage ctx={ctx} />}
       {page !== 'agent' && <AgentWidget onChanged={refresh} context={{ issue_date: issueDate, turbine }} />}
     </div>

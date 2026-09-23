@@ -13,6 +13,7 @@ import { LoginPage } from './pages/LoginPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import { ForecastPage } from './pages/ForecastPage'
 import { MapPage } from './pages/MapPage'
+import { ReplayPage } from './pages/ReplayPage'
 
 export default function App() {
   const [user, setUser] = useState<string | null | undefined>(undefined)
@@ -57,6 +58,7 @@ function Shell({ user, onLogout }: { user: string; onLogout: () => void }) {
       <Sidebar onRun={run} running={running} runMsg={runMsg} />
       <TopBar ctx={ctxLine} user={user} onLogout={onLogout} />
       {page === 'forecast' && <ForecastPage ctx={ctx} />}
+      {page === 'replay' && <ReplayPage ctx={ctx} />}
       {page === 'map' && <MapPage ctx={ctx} />}
       {page === 'analytics' && <AnalyticsPage ctx={ctx} />}
       {page === 'agent' && <AgentPage ctx={ctx} />}

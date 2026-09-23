@@ -1,4 +1,4 @@
-import { BarChart3, Bot, LineChart, Loader2, Map, RefreshCw } from 'lucide-react'
+import { BarChart3, Bot, CalendarClock, LineChart, Loader2, Map, RefreshCw } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useT } from '../../lib/i18n'
 import { navigate, usePage, type Page } from '../../lib/router'
@@ -11,15 +11,19 @@ export function Sidebar(p: Props) {
   const page = usePage()
   const items: { id: Page; icon: ReactNode; label: string }[] = [
     { id: 'forecast', icon: <LineChart size={18} />, label: t('nav_forecast') },
+    { id: 'replay', icon: <CalendarClock size={18} />, label: t('nav_replay') },
     { id: 'map', icon: <Map size={18} />, label: t('nav_map') },
     { id: 'analytics', icon: <BarChart3 size={18} />, label: t('nav_analytics') },
     { id: 'agent', icon: <Bot size={18} />, label: t('nav_agent') },
   ]
   return (
     <aside className="group fixed inset-y-0 left-0 z-30 flex w-14 flex-col overflow-hidden border-r border-line bg-panel transition-[width,background-color] duration-200 hover:w-56">
-      <div className="flex h-[42px] items-center gap-3 border-b border-line px-4">
-        <span className="num text-lg font-bold text-blue">∞</span>
-        <span className="whitespace-nowrap text-sm font-semibold opacity-0 transition-opacity group-hover:opacity-100">Infinity AI</span>
+      <div className="flex h-[64px] items-center gap-3 border-b border-line px-2.5">
+        <TurbineLogo />
+        <span className="flex flex-col whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100">
+          <span className="text-[15px] font-semibold leading-tight">Нурлы</span>
+          <span className="text-[11px] text-mute">Infinity AI · прогноз</span>
+        </span>
       </div>
       <nav className="flex flex-col gap-1 p-2">
         {items.map((it) => <Item key={it.id} icon={it.icon} label={it.label} active={page === it.id} onClick={() => navigate(it.id)} />)}
@@ -40,5 +44,21 @@ function Item({ icon, label, active, onClick, disabled }: { icon: ReactNode; lab
       <span className="shrink-0">{icon}</span>
       <span className="whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover:opacity-100">{label}</span>
     </button>
+  )
+}
+
+/** Логотип: ветротурбина с вращающимся ротором. */
+function TurbineLogo() {
+  return (
+    <svg viewBox="0 0 36 44" className="h-10 w-9 shrink-0 text-blue" aria-hidden>
+      <path d="M17 16 L16 43 L20 43 L19 16 Z" fill="currentColor" opacity=".85" />
+      <rect x="15" y="12" width="7" height="4" rx="1.5" fill="currentColor" />
+      <g className="logo-rotor" style={{ transformOrigin: '18px 14px' }}>
+        <path d="M18 14 C17 9 17.2 4 18 1 C18.8 4 19 9 18 14 Z" fill="currentColor" />
+        <path d="M18 14 C22.3 16.5 26.5 19.2 28.9 21.2 C26 20.3 21.7 17.9 18 14 Z" fill="currentColor" />
+        <path d="M18 14 C13.7 16.5 9.5 19.2 7.1 21.2 C10 20.3 14.3 17.9 18 14 Z" fill="currentColor" />
+        <circle cx="18" cy="14" r="2" fill="var(--color-panel)" stroke="currentColor" strokeWidth="1.2" />
+      </g>
+    </svg>
   )
 }

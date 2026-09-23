@@ -82,3 +82,6 @@ body { @apply bg-bg text-text font-sans text-base antialiased; transition: backg
 /* бегущая подсветка по шагам цикла агента */
 @keyframes sweep { 0%, 100% { background: transparent; } 8% { background: color-mix(in srgb, var(--color-blue) 14%, transparent); } 20% { background: transparent; } }
 .rail-sweep { animation-name: sweep; animation-iteration-count: infinite; animation-timing-function: ease-in-out; }
+
+.logo-rotor { animation: spin 4s linear infinite; }
+.group:hover .logo-rotor { animation-duration: 1.6s; }

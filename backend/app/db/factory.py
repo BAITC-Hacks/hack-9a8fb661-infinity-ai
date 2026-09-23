@@ -19,6 +19,7 @@ def get_store() -> Store:
                 try:
                     from app.db.clickhouse import ClickHouseStore
                     _store = ClickHouseStore()
+                    _store.init()
                 except Exception as e:
                     log.warning(
                         "ClickHouse недоступен (%s) — переключаюсь на SQLite %s", e,

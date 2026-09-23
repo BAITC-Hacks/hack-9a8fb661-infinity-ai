@@ -87,8 +87,6 @@ CH_SCHEMA = [
     WIND_ACTUALS_DDL,
     WIND_GAPS_DDL,
     KNOWLEDGE_DDL,
-    "ALTER TABLE forecasts ADD COLUMN IF NOT EXISTS p_lo Nullable(Float32)",
-    "ALTER TABLE forecasts ADD COLUMN IF NOT EXISTS p_hi Nullable(Float32)",
     """CREATE TABLE IF NOT EXISTS runs (id UInt64, created_at DateTime('UTC'), issue_date Date,
        mode LowCardinality(String), status LowCardinality(String), model_trained_until String,
        weather_signature Float64, summary String) ENGINE = MergeTree ORDER BY (issue_date, id)""",
@@ -109,6 +107,9 @@ CH_SCHEMA = [
     """CREATE TABLE IF NOT EXISTS llm_cache (key String, model String, response String,
        prompt_tokens UInt32, completion_tokens UInt32, created_at DateTime('UTC'))
        ENGINE = ReplacingMergeTree(created_at) ORDER BY key""",
+    # миграции — после всех CREATE TABLE (на пустой базе таблица forecasts должна уже существовать)
+    "ALTER TABLE forecasts ADD COLUMN IF NOT EXISTS p_lo Nullable(Float32)",
+    "ALTER TABLE forecasts ADD COLUMN IF NOT EXISTS p_hi Nullable(Float32)"
 ]
 
 

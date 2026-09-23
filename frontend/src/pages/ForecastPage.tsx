@@ -3,7 +3,7 @@ import { api } from '../api/client'
 import { FilterBar, type Mode, type View } from '../components/layout/FilterBar'
 import { ChartPanel } from '../features/ChartPanel'
 import { AlertsPanel } from '../features/AlertsPanel'
-import { HourlyTable, StatusLine } from '../features/ForecastSide'
+import { HourlyTable } from '../features/ForecastSide'
 import { useT } from '../lib/i18n'
 import { KpiStrip } from '../features/KpiStrip'
 import { useAsync } from '../hooks/useAsync'
@@ -45,7 +45,6 @@ export function ForecastPage({ ctx }: { ctx: Ctx }) {
           <ChartPanel rows={rows} weather={weather.data ?? []} prevWeather={prevWeather.data ?? []} rated={rated} turbine={turbine} issueDate={issueDate} horizon={horizon}
             view={view} loading={forecast.loading} error={forecast.error} band={band} showFact={mode === 'eval'} prev={prevList} />
           <div className="space-y-3">
-            <StatusLine weather={weather.data ?? []} rows={rows} prevRows={prevList[0]?.rows ?? []} />
             <AlertsPanel alerts={alerts.data ?? []} summary={forecast.data?.run.summary ?? null} passport={passport.data} llm={llm} loading={alerts.loading} />
           </div>
         </div>

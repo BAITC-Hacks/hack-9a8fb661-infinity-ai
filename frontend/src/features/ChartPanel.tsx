@@ -2,7 +2,7 @@ import { Download, Loader2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { ComposedChart, CartesianGrid, LabelList, Line, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { ForecastRow, TurbineId, WeatherPoint } from '../api/types'
-import { devTone, fmt, TOL_PCT } from '../lib/calc'
+import { devTone, fmt } from '../lib/calc'
 import { ddmm, hhmm, ruDate } from '../lib/format'
 import { useT } from '../lib/i18n'
 import { usePalette } from '../lib/theme'
@@ -47,8 +47,6 @@ export function ChartPanel(p: Props) {
     })
   }, [p.rows, p.weather, p.prevWeather, p.prev, p.rated, p.band, p.showFact, cbWind, cbTemp])
   const shown = zoom ? data.slice(zoom[0], zoom[1] + 1) : data
-  const fcs = data.map((d) => d.fc as number)
-  const iPeak = fcs.length ? fcs.indexOf(Math.max(...fcs)) : -1
   const ticks = shown.filter((d) => new Date(String(d.time)).getUTCHours() % 6 === 1).map((d) => d.i as number)
   const crumbs = [t('root'), t('station'), p.turbine === 'STATION' ? null : p.turbine === 'T1' ? t('t1') : t('t2')].filter(Boolean) as string[]
 
@@ -72,9 +70,7 @@ export function ChartPanel(p: Props) {
       <div className="flex h-[44px] items-center gap-3 border-b border-line bg-sunk px-3">
         <span className="text-[14px] font-semibold">{t('k_forecast')} · {crumbs[crumbs.length - 1]}</span>
         <span className="mono text-mute">{t('f_issue')} {ruDate(p.issueDate)} · +{p.horizon} {t('h_short')}</span>
-        <span className="mono ml-auto hidden text-mute lg:inline">
-          {t('tol', { tol: TOL_PCT })} · {iPeak >= 0 ? t('peak', { mw: fcs[iPeak].toFixed(2), t: hhmm(String(data[iPeak].time)) }) : '—'}
-        </span>
+        <span className="ml-auto" />
         {p.loading && <Loader2 size={14} className="animate-spin text-mute" />}
         {zoom && <button onClick={() => setZoom(null)} className="rounded-md border border-line px-2 py-1 text-[11px] text-mute hover:text-text">{t('reset_zoom')}</button>}
         <button onClick={exportCsv} className="flex items-center gap-1 rounded-md border border-line px-2 py-1 text-[11px] text-mute hover:border-blue hover:text-text"><Download size={12} />{t('download_csv')}</button>

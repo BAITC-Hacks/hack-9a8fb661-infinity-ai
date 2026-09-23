@@ -83,7 +83,5 @@ def sources() -> dict:
              "detail": f"{len(store.objects())} турбины по 2,5 МВт"},
             {"name": "Отчёт о пропусках", "source": "дата-инженер", "status": "ok",
              "detail": f"{len(gaps_df())} пропусков"},
-            {"name": "Факт за февраль", "source": "организаторы", "status": "missing",
-             "detail": "не предоставлен"},
         ],
     }

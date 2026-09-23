@@ -7,7 +7,21 @@ import pandas as pd
 from app.core import config
 from app.db.base import FC_COLS, LOG_COLS, METRIC_COLS, RUN_COLS, Store, _j, _none, new_id
 
+# Справочник объектов — DDL дата-инженера без изменений.
+WIND_OBJECTS_DDL = """CREATE TABLE IF NOT EXISTS wind_objects
+(
+    object_id UInt32,
+    name String,
+    latitude Float64,
+    longitude Float64,
+    updated_at DateTime64(3, 'Etc/GMT-5')
+        DEFAULT now64(3, 'Etc/GMT-5')
+)
+ENGINE = ReplacingMergeTree(updated_at)
+ORDER BY object_id"""
+
 CH_SCHEMA = [
+    WIND_OBJECTS_DDL,
     """CREATE TABLE IF NOT EXISTS runs (id UInt64, created_at DateTime('UTC'), issue_date Date,
        mode LowCardinality(String), status LowCardinality(String), model_trained_until String,
        weather_signature Float64, summary String) ENGINE = MergeTree ORDER BY (issue_date, id)""",
@@ -71,6 +85,14 @@ class ClickHouseStore(Store):
     def init(self):
         for ddl in CH_SCHEMA:
             self.cli.command(ddl)
+        if not self.cli.query("SELECT count() FROM wind_objects").result_rows[0][0]:
+            self.cli.insert("wind_objects", [[o.object_id, o.name, o.lat, o.lon]
+                                             for o in config.TURBINES],
+                            column_names=["object_id", "name", "latitude", "longitude"])
+
+    def objects(self):
+        return self._rows("SELECT object_id, name, latitude, longitude FROM wind_objects FINAL"
+                          " ORDER BY object_id")
 
     def create_run(self, issue_date, mode, status, trained_until, signature, summary):
         rid = new_id()

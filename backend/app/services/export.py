@@ -16,7 +16,20 @@ def overall_metrics(fc) -> dict:
         "by_turbine_and_horizon": summarize(fc).round(4).to_dict("records"),
         "station_by_issue_date": summarize(fc[fc["turbine"] == "STATION"], by=("issue_date",))
         .round(4).to_dict("records"),
+        "daily": daily_errors(fc),
     }
+
+
+def daily_errors(fc) -> list[dict]:
+    """По дням выпуска: MAE базы (персистентность), модели на 1-24 ч и на 25-48 ч."""
+    by_b = summarize(fc, by=("turbine", "issue_date", "bucket"))
+    if by_b.empty:
+        return []
+    base = summarize(fc, by=("turbine", "issue_date"))[["turbine", "issue_date", "mae_base"]]
+    wide = by_b.pivot_table(index=["turbine", "issue_date"], columns="bucket", values="mae")
+    wide = wide.rename(columns={"1-24h": "mae_24", "25-48h": "mae_48"}).reset_index()
+    out = wide.merge(base, on=["turbine", "issue_date"], how="left")
+    return out.round(4).astype(object).where(out.notna(), None).to_dict("records")
 
 
 def export_all():

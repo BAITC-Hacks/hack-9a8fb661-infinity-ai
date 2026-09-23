@@ -41,6 +41,7 @@ export interface MetricsResponse {
   note: string | null
   by_turbine_and_horizon: MetricRow[]
   station_by_issue_date: MetricRow[]
+  daily: DailyError[]
 }
 
 export interface AgentLogEntry {
@@ -70,3 +71,14 @@ export type AgentEvent =
   | { type: 'answer'; text: string }
   | { type: 'error'; text: string }
   | { type: 'done' }
+
+export interface DailyError {
+  turbine: string
+  issue_date: string
+  mae_base: number | null
+  mae_24: number | null
+  mae_48: number | null
+}
+
+export interface CurvePoint { v: number; p: number }
+export interface PowerCurve { turbine: string; n_hours: number; curve: CurvePoint[]; points: CurvePoint[] }

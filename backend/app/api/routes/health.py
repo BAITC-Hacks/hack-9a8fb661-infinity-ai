@@ -18,3 +18,9 @@ def health():
 @router.get("/usage", response_model=LlmUsage)
 def usage(store=Depends(get_store)):
     return store.llm_usage()
+
+
+@router.get("/objects")
+def objects(store=Depends(get_store)):
+    """Справочник объектов ВЭС (wind_objects)."""
+    return store.objects()

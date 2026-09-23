@@ -16,14 +16,16 @@ def _bool(name: str, default: bool) -> bool:
 @dataclass(frozen=True)
 class Turbine:
     id: str
+    object_id: int      # wind_objects.object_id (справочник дата-инженера)
+    name: str
     lat: float
     lon: float
     raw_file: str
 
 
 TURBINES = (
-    Turbine("T1", 43.645150, 78.535604, "turbine1.csv"),
-    Turbine("T2", 43.643198, 78.538828, "turbine2.csv"),
+    Turbine("T1", 1, "Турбина 1", 43.645138889, 78.535611111, "turbine1.csv"),
+    Turbine("T2", 2, "Турбина 2", 43.643194444, 78.538833333, "turbine2.csv"),
 )
 # Обе турбины в одной ячейке сетки Open-Meteo — погодный ряд один на станцию.
 SITE_LAT = round(sum(t.lat for t in TURBINES) / len(TURBINES), 5)

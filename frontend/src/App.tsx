@@ -1,51 +1,35 @@
-import { AnimatePresence, motion } from 'motion/react'
-import { BarChart3, Bot, CalendarRange, LineChart, ListTree, Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from './api/client'
 import type { TurbineId } from './api/types'
-import { Card, CardTitle } from './components/ui/Card'
-import { Skeleton } from './components/ui/Skeleton'
-import { StatusBadge } from './components/ui/StatusBadge'
+import { Tile, type Tone } from './components/ui/Tile'
 import { Sidebar } from './components/layout/Sidebar'
-import { AgentChat } from './features/AgentChat'
-import { AgentTimeline } from './features/AgentTimeline'
-import { BacktestPanel } from './features/BacktestPanel'
-import { ForecastChart } from './features/ForecastChart'
-import { KpiRow } from './features/KpiRow'
+import { AgentWidget } from './features/AgentWidget'
+import { DailyErrorPanel } from './features/DailyErrorPanel'
+import { ForecastPanel, ISSUE_MAX, ISSUE_MIN } from './features/ForecastPanel'
+import { PowerCurvePanel } from './features/PowerCurvePanel'
 import { TestPeriodPanel } from './features/TestPeriodPanel'
 import { useAsync } from './hooks/useAsync'
+import { pct } from './lib/format'
 
-type Tab = 'log' | 'chat' | 'bt' | 'feb'
-const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'log', label: 'Журнал агента', icon: <ListTree size={15} /> },
-  { id: 'chat', label: 'Спросить агента', icon: <Bot size={15} /> },
-  { id: 'bt', label: 'Бэктест · январь', icon: <BarChart3 size={15} /> },
-  { id: 'feb', label: 'Тестовый период · февраль', icon: <CalendarRange size={15} /> },
-]
+const NAMES: Record<TurbineId, string> = { STATION: 'Станция', T1: 'Турбина 1', T2: 'Турбина 2' }
 
 export default function App() {
   const [turbine, setTurbine] = useState<TurbineId>('STATION')
   const [horizon, setHorizon] = useState<24 | 48>(48)
-  const [issueDate, setIssueDate] = useState('')
-  const [tab, setTab] = useState<Tab>('log')
+  const [issueDate, setIssueDate] = useState('2026-01-31')
   const [running, setRunning] = useState(false)
   const [runMsg, setRunMsg] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
   const refresh = useCallback(() => setTick((t) => t + 1), [])
 
   const health = useAsync(api.health, [])
-  const issues = useAsync(api.issues, [tick])
   const metrics = useAsync(api.metrics, [tick])
-  const forecast = useAsync(() => (issueDate ? api.forecast(issueDate, turbine) : Promise.resolve(null)), [issueDate, turbine, tick])
-  const log = useAsync(() => (issueDate ? api.log(issueDate) : Promise.resolve([])), [issueDate, tick])
+  const forecast = useAsync(() => api.forecast(issueDate, turbine), [issueDate, turbine, tick])
+  const log = useAsync(() => api.log(issueDate), [issueDate, tick])
   const timeline = useAsync(() => api.timeline(turbine), [turbine, tick])
+  const curve = useAsync(() => api.powerCurve(turbine), [turbine])
 
-  useEffect(() => {
-    if (!issueDate && issues.data?.length) {
-      const first = issues.data.find((r) => r.issue_date === '2026-01-31') ?? issues.data[0]
-      setIssueDate(first.issue_date)
-    }
-  }, [issues.data, issueDate])
+  useEffect(() => { setRunMsg(null) }, [issueDate])
 
   const rows = useMemo(() => (forecast.data?.rows ?? []).filter((r) => r.lead_hours <= horizon), [forecast.data, horizon])
   const band = useCallback((lead: number) => {
@@ -53,82 +37,69 @@ export default function App() {
     return metrics.data?.by_turbine_and_horizon.find((m) => m.turbine === turbine && m.bucket === b)?.mae ?? 0.15
   }, [metrics.data, turbine])
 
+  const k = kpis(rows)
   const run = async () => {
-    if (!issueDate) return
-    setRunning(true); setRunMsg(null)
-    try {
-      const r = await api.run(issueDate)
-      setRunMsg(`Готово · run ${r.id} · ${r.status}`)
-      refresh()
-    } catch (e) {
-      setRunMsg(`Ошибка: ${(e as Error).message}`)
-    } finally { setRunning(false) }
+    setRunning(true)
+    try { const r = await api.run(issueDate); setRunMsg(`Готово: ${r.status}`); refresh() }
+    catch (e) { setRunMsg(`Ошибка: ${(e as Error).message}`) }
+    finally { setRunning(false) }
   }
-
-  const noData = !issues.loading && !issues.data?.length
+  const status = forecast.data?.run.status
 
   return (
-    <div className="min-h-full lg:flex">
-      <Sidebar issues={issues.data ?? []} issueDate={issueDate} onIssue={setIssueDate} turbine={turbine} onTurbine={setTurbine}
-        horizon={horizon} onHorizon={setHorizon} onRun={run} running={running} runMsg={runMsg} health={health.data} />
+    <div className="min-h-full pl-14">
+      <Sidebar turbine={turbine} onTurbine={setTurbine} onRun={run} running={running} runMsg={runMsg} health={health.data} />
 
-      <main className="min-w-0 flex-1 space-y-5 p-4 sm:p-6 lg:p-8">
-        <header className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <motion.h1 key={issueDate} initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
-              className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              Прогноз выработки <span className="text-acc">{turbine === 'STATION' ? 'станции' : turbine}</span>
-            </motion.h1>
-            <p className="mt-1 text-sm text-mute">Выпуск {issueDate || '…'} 00:00 UTC · горизонт {horizon} ч · архивные прогнозы Open-Meteo, доступные на момент выпуска</p>
-          </div>
-          {forecast.data && <StatusBadge status={forecast.data.run.status} mode={forecast.data.run.mode} />}
+      <main className="mx-auto max-w-[1400px] space-y-4 p-5">
+        <header className="flex flex-wrap items-baseline justify-between gap-2">
+          <h1 className="text-[22px] font-semibold">{NAMES[turbine]} · выработка на {horizon} ч</h1>
+          {status && (
+            <span className={`text-sm ${status === 'ok' ? 'text-mute' : 'text-warn'}`}>
+              {status === 'ok' ? 'данные полные' : 'пониженная достоверность'}
+            </span>
+          )}
         </header>
 
-        {noData && (
-          <Card><p className="text-sm text-warn">В хранилище нет прогнозов. Запустите бэктест: <code className="font-mono">python -m app.cli backtest</code></p></Card>
-        )}
-        {(issues.error || forecast.error) && <Card><p className="text-sm text-bad">Ошибка API: {issues.error || forecast.error}</p></Card>}
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
+          <Tile label="Энергия" value={k.energy} unit="ч·Pном" />
+          <Tile label="Средняя мощность" value={k.mean} />
+          <Tile label="Пик" value={k.peak} />
+          <Tile label="MAE выпуска" value={k.mae} />
+          <Tile label="Выигрыш у базы" value={k.skill} tone={k.tone} />
+        </div>
 
-        <KpiRow rows={rows} />
+        <ForecastPanel rows={rows} issueDate={issueDate}
+          onIssue={(d) => d >= ISSUE_MIN && d <= ISSUE_MAX && setIssueDate(d)}
+          horizon={horizon} onHorizon={setHorizon} band={band} error={forecast.error} />
 
-        <Card delay={0.1}>
-          <CardTitle icon={<LineChart size={16} />} title="Почасовой прогноз мощности" right="доля номинальной мощности · UTC" />
-          {forecast.loading && !forecast.data ? <Skeleton className="h-[360px]" /> : <ForecastChart rows={rows} band={band} />}
-        </Card>
+        <div className="grid gap-4 min-[1000px]:grid-cols-2">
+          <PowerCurvePanel data={curve.data} error={curve.error} />
+          <DailyErrorPanel daily={metrics.data?.daily ?? []} turbine={turbine} error={metrics.error} />
+        </div>
 
-        <AnimatePresence mode="wait">
-          {forecast.data?.run.summary && (
-            <motion.div key={forecast.data.run.id + turbine} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              className="glass relative overflow-hidden border-l-4 border-l-acc p-5">
-              <div className="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-acc"><Sparkles size={14} />Вывод агента</div>
-              <p className="text-sm leading-relaxed text-text/90">{forecast.data.run.summary}</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <nav className="flex flex-wrap gap-1 rounded-2xl border border-line bg-panel/60 p-1 backdrop-blur">
-          {TABS.map((t) => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`relative flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors ${tab === t.id ? 'text-bg' : 'text-mute hover:text-text'}`}>
-              {tab === t.id && <motion.span layoutId="tab-pill" className="absolute inset-0 -z-0 rounded-xl bg-acc" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />}
-              <span className="relative z-10 flex items-center gap-2">{t.icon}{t.label}</span>
-            </button>
-          ))}
-        </nav>
-
-        <AnimatePresence mode="wait">
-          <motion.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.25 }}>
-            <Card className="scroll-thin">
-              {tab === 'log' && (log.data ? <AgentTimeline entries={log.data} /> : <Skeleton />)}
-              {tab === 'chat' && <AgentChat onChanged={refresh} />}
-              {tab === 'bt' && (metrics.data ? <BacktestPanel m={metrics.data} /> : <Skeleton />)}
-              {tab === 'feb' && (timeline.data ? <TestPeriodPanel points={timeline.data} /> : <Skeleton />)}
-            </Card>
-          </motion.div>
-        </AnimatePresence>
-
-        <footer className="pb-4 text-center text-xs text-mute/70">Infinity AI · HackAlem AI 2026 · трек «Энергетика»</footer>
+        <TestPeriodPanel points={timeline.data ?? []} error={timeline.error} />
       </main>
+
+      <AgentWidget pipelineLog={log.data ?? []} onChanged={refresh} />
     </div>
   )
+}
+
+function kpis(rows: { p_hat: number; actual: number | null; baseline: number | null }[]) {
+  const p = rows.map((r) => r.p_hat)
+  const energy = p.reduce((a, b) => a + b, 0)
+  const fact = rows.filter((r) => r.actual != null)
+  const mae = fact.length ? fact.reduce((a, r) => a + Math.abs(r.actual! - r.p_hat), 0) / fact.length : null
+  const base = fact.filter((r) => r.baseline != null)
+  const maeB = base.length ? base.reduce((a, r) => a + Math.abs(r.actual! - r.baseline!), 0) / base.length : null
+  const skill = mae != null && maeB ? 1 - mae / maeB : null
+  const tone: Tone = skill == null ? 'neutral' : skill > 0 ? 'good' : 'warn'
+  return {
+    energy: p.length ? energy.toFixed(1) : '—',
+    mean: p.length ? pct(energy / p.length) : '—',
+    peak: p.length ? pct(Math.max(...p)) : '—',
+    mae: mae != null ? mae.toFixed(3) : '—',
+    skill: skill != null ? `${skill > 0 ? '+' : ''}${pct(skill)}` : '—',
+    tone,
+  }
 }

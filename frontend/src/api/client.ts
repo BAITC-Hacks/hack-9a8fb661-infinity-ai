@@ -1,5 +1,5 @@
 import type {
-  AgentLogEntry, ForecastResponse, Health, MetricsResponse, Run, TimelinePoint, TurbineId,
+  AgentLogEntry, ForecastResponse, Health, MetricsResponse, PowerCurve, Run, TimelinePoint, TurbineId,
 } from './types'
 
 export class ApiError extends Error {
@@ -33,6 +33,7 @@ export const api = {
   forecast: (issue_date: string, turbine: TurbineId) =>
     request<ForecastResponse>(`/api/forecast?${q({ issue_date, turbine })}`),
   metrics: () => request<MetricsResponse>('/api/metrics'),
+  powerCurve: (turbine: TurbineId) => request<PowerCurve>(`/api/power-curve?${q({ turbine })}`),
   log: (issue_date: string, limit = 80) =>
     request<AgentLogEntry[]>(`/api/log?${q({ issue_date, limit })}`),
   timeline: (turbine: TurbineId, max_lead = 24) =>

@@ -1,12 +1,15 @@
 export const pct = (x: number | null | undefined, digits = 0) =>
-  x == null || Number.isNaN(x) ? '–' : `${(x * 100).toFixed(digits)}%`
+  x == null || Number.isNaN(x) ? '—' : `${(x * 100).toFixed(digits)}%`
 
-/** '2026-02-12T20:00:00Z' -> '12.02 20:00' (UTC) */
-export const shortTime = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)} ${iso.slice(11, 16)}`
+const LOCAL_OFFSET_H = 5 // Алматы, UTC+5
 
-export const shortDate = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}`
-
-export const toLocal = (iso: string, offsetH = 5) => {
-  const d = new Date(new Date(iso).getTime() + offsetH * 3600e3)
-  return d.toISOString().slice(11, 16)
+/** ISO UTC -> Date в поясе Алматы (через UTC-геттеры) */
+export const localDate = (iso: string) => new Date(new Date(iso).getTime() + LOCAL_OFFSET_H * 3600e3)
+export const localHour = (iso: string) => localDate(iso).getUTCHours()
+export const hhmm = (iso: string) => `${String(localHour(iso)).padStart(2, '0')}:00`
+export const ddmm = (iso: string) => {
+  const d = localDate(iso)
+  return `${String(d.getUTCDate()).padStart(2, '0')}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`
 }
+export const dayOf = (isoDate: string) => String(Number(isoDate.slice(8, 10)))
+export const ruDate = (isoDate: string) => `${isoDate.slice(8, 10)}.${isoDate.slice(5, 7)}`

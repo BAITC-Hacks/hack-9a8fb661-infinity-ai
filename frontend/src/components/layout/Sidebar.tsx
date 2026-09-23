@@ -1,111 +1,70 @@
-import { motion } from 'motion/react'
-import { ChevronLeft, ChevronRight, Cpu, Database, CloudSun, Loader2, Play, Zap } from 'lucide-react'
-import type { Health, Run, TurbineId } from '../../api/types'
-import { Segmented } from '../ui/Segmented'
+import { Cpu, Database, CloudSun, Loader2, RefreshCw, Wind } from 'lucide-react'
+import type { ReactNode } from 'react'
+import type { Health, TurbineId } from '../../api/types'
+
+const OBJECTS: { id: TurbineId; label: string }[] = [
+  { id: 'STATION', label: 'Станция' }, { id: 'T1', label: 'Турбина 1' }, { id: 'T2', label: 'Турбина 2' },
+]
 
 interface Props {
-  issues: Run[]
-  issueDate: string
-  onIssue: (d: string) => void
   turbine: TurbineId
   onTurbine: (t: TurbineId) => void
-  horizon: 24 | 48
-  onHorizon: (h: 24 | 48) => void
   onRun: () => void
   running: boolean
   runMsg: string | null
   health: Health | null
 }
 
+/** Свёрнутая полоса 56px; при наведении раскрывается поверх контента. */
 export function Sidebar(p: Props) {
-  const idx = p.issues.findIndex((r) => r.issue_date === p.issueDate)
-  const step = (d: number) => {
-    const n = p.issues[idx + d]
-    if (n) p.onIssue(n.issue_date)
-  }
   return (
-    <aside className="flex flex-col gap-6 border-b border-line bg-panel/70 p-5 backdrop-blur-xl lg:sticky lg:top-0 lg:h-screen lg:w-72 lg:border-r lg:border-b-0">
-      <div className="flex items-center gap-3">
-        <motion.div
-          className="grid size-10 place-items-center rounded-xl bg-acc text-bg shadow-[0_0_30px_rgba(118,185,0,.45)]"
-          animate={{ rotate: [0, 8, -8, 0] }} transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-        >
-          <Zap size={20} strokeWidth={2.5} />
-        </motion.div>
-        <div>
-          <div className="font-semibold tracking-tight">Infinity AI</div>
-          <div className="text-xs text-mute">Agentic-прогноз выработки ВЭС</div>
-        </div>
+    <aside className="group fixed inset-y-0 left-0 z-30 flex w-14 flex-col overflow-hidden border-r border-line bg-panel transition-[width] duration-200 hover:w-60">
+      <div className="flex h-14 items-center gap-3 border-b border-line px-4">
+        <span className="num text-lg font-bold text-blue">∞</span>
+        <span className="whitespace-nowrap text-sm font-semibold opacity-0 group-hover:opacity-100">Infinity AI</span>
       </div>
 
-      <Field label="Объект">
-        <Segmented id="turbine" value={p.turbine} onChange={p.onTurbine}
-          options={[{ value: 'STATION', label: 'Станция' }, { value: 'T1', label: 'T1' }, { value: 'T2', label: 'T2' }]} />
-      </Field>
+      <nav className="flex flex-col gap-1 p-2">
+        {OBJECTS.map((o) => (
+          <Item key={o.id} active={p.turbine === o.id} onClick={() => p.onTurbine(o.id)}
+            icon={<Wind size={18} />} label={o.label} badge={o.id === 'STATION' ? 'Σ' : o.id} />
+        ))}
+      </nav>
 
-      <Field label="Дата выпуска прогноза" hint="00:00 UTC · 05:00 Алматы · горизонт +1…+48 ч">
-        <div className="flex items-center gap-2">
-          <IconBtn onClick={() => step(-1)} disabled={idx <= 0} label="Предыдущий выпуск"><ChevronLeft size={16} /></IconBtn>
-          <select value={p.issueDate} onChange={(e) => p.onIssue(e.target.value)}
-            className="tabular w-full rounded-xl border border-line bg-bg/60 px-3 py-2 text-sm outline-none focus:border-acc">
-            {p.issues.map((r) => (
-              <option key={r.issue_date} value={r.issue_date}>
-                {r.issue_date}{r.mode === 'backtest' ? ' · бэктест' : ''}
-              </option>
-            ))}
-          </select>
-          <IconBtn onClick={() => step(1)} disabled={idx < 0 || idx >= p.issues.length - 1} label="Следующий выпуск"><ChevronRight size={16} /></IconBtn>
-        </div>
-      </Field>
-
-      <Field label="Горизонт">
-        <Segmented id="horizon" value={p.horizon} onChange={p.onHorizon}
-          options={[{ value: 24, label: '24 ч' }, { value: 48, label: '48 ч' }]} />
-      </Field>
-
-      <div>
-        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={p.onRun} disabled={p.running}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-acc px-4 py-3 font-semibold text-bg shadow-[0_8px_30px_rgba(118,185,0,.35)] transition disabled:opacity-60">
-          {p.running ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} />}
-          {p.running ? 'Агент считает…' : 'Запустить агента'}
-        </motion.button>
-        {p.runMsg && <p className="mt-2 text-xs text-mute">{p.runMsg}</p>}
+      <div className="border-t border-line p-2">
+        <Item onClick={p.onRun} disabled={p.running} label={p.running ? 'Считаю…' : 'Пересчитать выпуск'}
+          icon={p.running ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />} />
+        {p.runMsg && <p className="whitespace-nowrap px-3 pt-1 text-[13px] text-mute opacity-0 group-hover:opacity-100">{p.runMsg}</p>}
       </div>
 
-      <div className="mt-auto space-y-2 border-t border-line pt-4 text-xs text-mute">
-        <SysRow icon={<Database size={14} />} k="Хранилище" v={p.health?.storage ?? '…'} />
-        <SysRow icon={<Cpu size={14} />} k="LLM" v={p.health?.llm ?? '…'} />
-        <SysRow icon={<CloudSun size={14} />} k="Погода" v={p.health ? `Open-Meteo${p.health.weather_offline ? ' · кеш' : ''}` : '…'} />
+      <div className="mt-auto space-y-3 border-t border-line p-4 text-[13px] text-mute">
+        <Sys icon={<Database size={16} />} v={p.health?.storage ?? '…'} />
+        <Sys icon={<Cpu size={16} />} v={p.health?.llm ?? '…'} />
+        <Sys icon={<CloudSun size={16} />} v="Open-Meteo" />
       </div>
     </aside>
   )
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Item({ icon, label, badge, active, onClick, disabled }: {
+  icon: ReactNode; label: string; badge?: string; active?: boolean; onClick: () => void; disabled?: boolean
+}) {
   return (
-    <div className="space-y-2">
-      <div className="text-xs font-medium uppercase tracking-wider text-mute">{label}</div>
-      {children}
-      {hint && <div className="text-[11px] text-mute/80">{hint}</div>}
-    </div>
-  )
-}
-
-function IconBtn({ children, onClick, disabled, label }: { children: React.ReactNode; onClick: () => void; disabled?: boolean; label: string }) {
-  return (
-    <button aria-label={label} onClick={onClick} disabled={disabled}
-      className="grid size-9 shrink-0 place-items-center rounded-xl border border-line text-mute transition hover:border-acc hover:text-acc disabled:opacity-30">
-      {children}
+    <button onClick={onClick} disabled={disabled} title={label}
+      className={`flex h-10 items-center gap-3 rounded-lg px-2.5 text-sm ${active ? 'bg-bg text-blue' : 'text-mute hover:text-text'} disabled:opacity-50`}>
+      <span className="relative shrink-0">{icon}
+        {badge && <span className="num absolute -right-2 -bottom-1.5 text-[9px] font-bold">{badge}</span>}
+      </span>
+      <span className="whitespace-nowrap opacity-0 group-hover:opacity-100">{label}</span>
     </button>
   )
 }
 
-function SysRow({ icon, k, v }: { icon: React.ReactNode; k: string; v: string }) {
+function Sys({ icon, v }: { icon: ReactNode; v: string }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-acc">{icon}</span>
-      <span>{k}</span>
-      <span className="ml-auto truncate font-mono text-text" title={v}>{v}</span>
+    <div className="flex items-center gap-3" title={v}>
+      <span className="shrink-0">{icon}</span>
+      <span className="truncate font-mono text-text opacity-0 group-hover:opacity-100">{v}</span>
     </div>
   )
 }

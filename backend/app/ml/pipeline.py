@@ -93,6 +93,21 @@ class Forecaster:
                           for t, x in zip(fc["turbine"], base_t)]
         return fc
 
+    def curve_data(self, turbine: str, until=None, n_points=2500) -> dict:
+        """Облако (прогнозный v_eq, факт мощности) + эмпирическая кривая для графика."""
+        until = pd.Timestamp(until or config.HISTORY_END, tz="UTC") + pd.Timedelta(hours=1)
+        if turbine == "STATION":
+            st = station_series(self.history)
+            st = st[(st["time"] < until) & ~st["is_downtime"]]
+            df = st[["time", "power"]].merge(self.train_weather(), on="time", how="inner")
+        else:
+            df = self.training_frame(turbine, until)
+        curve = WindPowerModel().curve.fit(df["v_eq"], df["power"])
+        pts = df.sample(min(n_points, len(df)), random_state=0)
+        return {"turbine": turbine, "n_hours": int(len(df)), "curve": curve.table(),
+                "points": [{"v": round(float(v), 2), "p": round(float(p), 3)}
+                           for v, p in zip(pts["v_eq"], pts["power"])]}
+
     @staticmethod
     def evaluate(fc: pd.DataFrame) -> pd.DataFrame:
         return summarize(fc)

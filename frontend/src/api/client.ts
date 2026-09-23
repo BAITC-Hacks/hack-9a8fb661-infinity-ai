@@ -51,6 +51,7 @@ export const api = {
     request<TimelinePoint[]>(`/api/timeline?${q({ turbine, max_lead })}`),
   run: (issue_date: string, force = true) =>
     request<Run>(`/api/run?${q({ issue_date, force })}`, { method: 'POST' }),
-  agentStreamUrl: (question: string, lang: string) => `/api/agent?${q({ q: question, lang })}`,
+  agentStreamUrl: (question: string, o: { lang: string; mode: string; session: string; issue_date?: string; turbine?: string }) =>
+    `/api/agent?${q({ q: question, ...o })}`,
   exportCsvUrl: '/api/export/forecasts.csv',
 }

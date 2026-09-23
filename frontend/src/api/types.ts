@@ -69,6 +69,7 @@ export type AgentEvent =
   | { type: 'tool_call'; name: string; args: Record<string, unknown> }
   | { type: 'tool_result'; name: string; result: unknown }
   | { type: 'answer'; text: string }
+  | { type: 'thinking'; text: string; seconds: number }
   | { type: 'error'; text: string }
   | { type: 'done' }
 

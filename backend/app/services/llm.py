@@ -1,4 +1,4 @@
-"""LLM-слой: OpenAI (лимит токенов, кеш в SQLite, учёт usage) или mock без ключа."""
+"""LLM-слой: vLLM/OpenAI (лимит токенов, кеш, учёт usage); без LLM — ответы по правилам на реальных данных."""
 import hashlib
 import json
 import logging
@@ -30,9 +30,9 @@ def is_mock() -> bool:
 def provider() -> str:
     chain = providers()
     if not chain:
-        return "mock"
+        return "rules"
     names = {"vllm": f"vllm:{config.VLLM_MODEL}", "openai": f"openai:{config.OPENAI_MODEL_STRONG}"}
-    return " → ".join(names[p] for p in chain) + " → mock"
+    return " → ".join(names[p] for p in chain) + " → rules"
 
 
 def _client(prov: str):
@@ -42,10 +42,20 @@ def _client(prov: str):
     return OpenAI(api_key=config.OPENAI_API_KEY, timeout=60, max_retries=2)
 
 
-def _model(prov: str, strong: bool) -> str:
+# Режимы как в ChatGPT/Claude: быстрый — без размышлений; средний — короткое; думающий — глубокое.
+MODES = {
+    "fast":   {"max_tokens": 900,  "vllm": {"chat_template_kwargs": {"enable_thinking": False}}},
+    "medium": {"max_tokens": 3000, "vllm": {"reasoning_effort": "low"}},
+    "deep":   {"max_tokens": 9000, "vllm": {"reasoning_effort": "xhigh"}},
+}
+
+
+def _model(prov: str, strong: bool, mode: str = "fast") -> str:
     if prov == "vllm":
         return config.VLLM_MODEL
-    return config.OPENAI_MODEL_STRONG if strong else config.OPENAI_MODEL_FAST
+    if mode == "deep":
+        return config.OPENAI_MODEL_REASONING
+    return config.OPENAI_MODEL_STRONG if (strong or mode == "medium") else config.OPENAI_MODEL_FAST
 
 
 def _key(model, messages, tools):
@@ -53,24 +63,28 @@ def _key(model, messages, tools):
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
-def chat(messages, strong=False, tools=None):
+def chat(messages, strong=False, tools=None, mode: str = "fast"):
     """Возвращает message-объект OpenAI (dict). Одинаковые запросы берутся из кеша.
     Провайдеры пробуются по цепочке; исключение — только если упали все."""
     store = db.get_store()
     last_err = None
+    mode = mode if mode in MODES else "fast"
     for prov in providers():
-        model = _model(prov, strong)
-        key = _key(f"{prov}/{model}", messages, tools)
+        model = _model(prov, strong, mode)
+        key = _key(f"{prov}/{model}/{mode}", messages, tools)
         hit = store.cache_get(key)
         if hit:
             return json.loads(hit)
-        kwargs = dict(model=model, messages=messages, max_tokens=config.LLM_MAX_TOKENS,
+        kwargs = dict(model=model, messages=messages, max_tokens=MODES[mode]["max_tokens"],
                       temperature=0.2)
         if tools:
             kwargs["tools"] = tools
         if prov == "vllm":
-            # Qwen3.8 на vLLM: без режима размышлений — быстрые ответы агента
-            kwargs["extra_body"] = {"chat_template_kwargs": {"enable_thinking": False}}
+            kwargs["extra_body"] = MODES[mode]["vllm"]
+        elif mode == "deep":   # reasoning-модели OpenAI: без temperature, лимит через max_completion_tokens
+            kwargs.pop("temperature"); kwargs.pop("max_tokens")
+            kwargs["max_completion_tokens"] = MODES[mode]["max_tokens"]
+            kwargs["reasoning_effort"] = "high"
         try:
             resp = _client(prov).chat.completions.create(**kwargs)
         except Exception as e:
@@ -78,8 +92,9 @@ def chat(messages, strong=False, tools=None):
             log.warning("llm %s недоступен (%s) — следующий провайдер", prov, e)
             continue
         msg = resp.choices[0].message.model_dump(exclude_none=True)
-        msg.pop("reasoning_content", None)
-        msg.pop("reasoning", None)
+        reasoning = msg.pop("reasoning_content", None) or msg.pop("reasoning", None)
+        if reasoning:
+            msg["_reasoning"] = reasoning
         usage = resp.usage
         log.info("llm %s/%s tokens: prompt=%s completion=%s", prov, model,
                  usage.prompt_tokens if usage else None,
@@ -114,7 +129,7 @@ def mock_summary(s: dict) -> str:
                      f"{s['weather_delta']:.1f} м/с.")
     parts.append("Достоверность пониженная: пропуски во входных данных."
                  if s.get("low_confidence") else "Входные данные полные, достоверность обычная.")
-    return "[mock] " + " ".join(parts)
+    return " ".join(parts)
 
 
 def summarize_forecast(stats: dict) -> str:

@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { api } from '../api/client'
 import type { TurbineId } from '../api/types'
 import { MiniTurbine } from '../features/MiniTurbine'
-import { FALLBACK, SiteMap } from '../features/SiteMap'
+import { SiteMap } from '../features/SiteMap'
 import { useAsync } from '../hooks/useAsync'
 import { kpis } from '../lib/calc'
 import type { Ctx } from '../lib/ctx'
@@ -21,7 +21,7 @@ export function MapPage({ ctx }: { ctx: Ctx }) {
   const rated = ratedOf('STATION')
   const k = kpis(station.data?.rows ?? [], rated)
   const wx = (weather.data ?? []).find((w) => w.time === k.peakTime) ?? null
-  const list = objs.length ? objs : FALLBACK
+  const list = objs
   const obj = list.find((o) => o.object_id === sel) ?? null
   const live = useMemo(() => {
     const rows = one.data?.rows ?? []

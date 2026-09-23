@@ -50,7 +50,7 @@ function Shell({ user, onLogout }: { user: string; onLogout: () => void }) {
     finally { setRunning(false) }
   }
   const ctx: Ctx = { turbine, setTurbine, issueDate, setIssueDate, tick, refresh, objs, ratedOf, llm: health.data?.llm ?? '…' }
-  const ctxLine = t('ctx', { n: objs.length || 2, mw: ratedOf('STATION'), model: objs[0]?.turbine_model ?? 'Goldwind GW109/2500' })
+  const ctxLine = objs.length ? t('ctx', { n: objs.length, mw: ratedOf('STATION'), model: objs[0].turbine_model ?? '' }) : ''
 
   return (
     <div className="min-h-full pl-14">
@@ -60,7 +60,7 @@ function Shell({ user, onLogout }: { user: string; onLogout: () => void }) {
       {page === 'map' && <MapPage ctx={ctx} />}
       {page === 'analytics' && <AnalyticsPage ctx={ctx} />}
       {page === 'agent' && <AgentPage ctx={ctx} />}
-      {page !== 'agent' && <AgentWidget onChanged={refresh} />}
+      {page !== 'agent' && <AgentWidget onChanged={refresh} context={{ issue_date: issueDate, turbine }} />}
     </div>
   )
 }

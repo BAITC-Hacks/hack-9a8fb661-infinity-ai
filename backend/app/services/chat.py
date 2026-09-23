@@ -66,7 +66,12 @@ SYSTEM = (
     "(UTC+5), даты в формате ДД.ММ. Даты выпуска доступны с 01.01.2026 по 27.02.2026; факт есть только до 31.01.\n"
     "4. Отвечай кратко и по делу: 2–5 предложений или короткий список, без вступлений и повторов вопроса. "
     "Сначала вывод, потом обоснование цифрами.\n"
-    "5. Если вопрос про будущее без даты — используй последний выпуск, о котором идёт речь, или попроси дату.\n"
+    "5. Если дата не названа — бери дату выпуска из контекста интерфейса. «Завтра/послезавтра/вчера» считай "
+    "от неё. Если объект не назван — объект из контекста.\n"
+    "6. Пользователь может писать с опечатками, без знаков препинания, транслитом, смешивая русский и казахский, "
+    "разговорно («скок», «чё», «прогназ», «выроботка», «ветр»). Понимай смысл и не проси переформулировать; "
+    "переспрашивай, только если вопрос действительно неоднозначен.\n"
+    "7. Помни предыдущие реплики диалога: «а завтра?», «а почему?», «а для второй?» относятся к прошлому вопросу.\n"
     "Язык ответа: {lang}."
 )
 LANG_NAME = {"ru": "русский", "kk": "казахский (қазақша)"}
@@ -138,19 +143,67 @@ def _extract_date(q):
     return f"{year}-{month:02d}-{day:02d}"
 
 
-def _mock_plan(q):
-    ql = q.lower()
-    date = _extract_date(q)
+MONTHS = {"янв": 1, "фев": 2, "мар": 3, "қаң": 1, "ақп": 2}
+RELATIVE = {"сегодня": 0, "бүгін": 0, "завтра": 1, "ертең": 1, "послезавтра": 2, "вчера": -1, "кеше": -1}
+INTENTS = {  # стемы для нечёткого сравнения (опечатки, разговорные формы)
+    "run": ("пересчит", "пересчет", "обнови", "запуст", "rerun", "қайтаесепте"),
+    "metrics": ("качеств", "метрик", "точн", "ошибк", "погрешн", "дәл", "сапа", "қате", "mae"),
+    "alerts": ("уведомл", "алерт", "предупрежд", "риск", "опасн", "ескерту", "қауіп", "упадет", "упадёт", "падени", "рост", "скачк"),
+    "log": ("почему", "пачему", "поч", "журнал", "решени", "неге", "себеп", "шешім", "зачем"),
+    "knowledge": ("башн", "ротор", "турбин", "лопаст", "модел", "методик", "как работ", "паспорт", "мощност номин", "высот", "диаметр", "где наход", "қайда"),
+}
+
+
+def _norm(q: str) -> str:
+    return re.sub(r"[^\w\s./-]", " ", q.lower().replace("ё", "е"))
+
+
+def _has(ql: str, stems, fuzzy: bool = True) -> bool:
+    import difflib
+    words = ql.split()
+    for st in stems:
+        if st in ql:
+            return True
+        if fuzzy and len(st) >= 5 and any(difflib.SequenceMatcher(None, w[:len(st)], st).ratio() >= 0.8 for w in words if len(w) >= 4):
+            return True
+    return False
+
+
+def _resolve_date(q: str, context: dict):
+    d = _extract_date(q)
+    if d:
+        return d
+    m = re.search(r"(\d{1,2})\s*([а-яәіңғүұқөһ]{3})", q.lower())
+    if m and m.group(2) in MONTHS:
+        return f"2026-{MONTHS[m.group(2)]:02d}-{int(m.group(1)):02d}"
+    import difflib
+    base = context.get("issue_date")
+    words = _norm(q).split()
+    for w, off in sorted(RELATIVE.items(), key=lambda kv: -len(kv[0])):   # «послезавтра» раньше «завтра»
+        if base and any(x == w or difflib.SequenceMatcher(None, x, w).ratio() >= 0.8 for x in words):
+            return str((pd.Timestamp(base) + pd.Timedelta(days=off)).date())
+    return base
+
+
+def _mock_plan(q, context=None):
+    context = context or {}
+    ql = _norm(q)
+    date = _resolve_date(q, context)
     plan = []
-    if any(w in ql for w in ("пересч", "обнов", "запуст", "rerun", "қайта есепте")) and date:
+    if _has(ql, INTENTS["run"]) and date:
         plan.append(("run_forecast", {"issue_date": date}))
-    if any(w in ql for w in ("качеств", "метрик", "mae", "точност", "ошибк", "дәл", "сапа", "қате")):
+    if _has(ql, INTENTS["metrics"]):
         plan.append(("get_metrics", {}))
-    if any(w in ql for w in ("уведомл", "алерт", "предупрежд", "риск", "ескерту", "қауіп")) and date:
+    if _has(ql, INTENTS["alerts"]) and date:
         plan.append(("get_alerts", {"issue_date": date}))
-    if any(w in ql for w in ("почему", "журнал", "лог", "решени", "неге", "себеп", "шешім")) and date:
+    wants_fc = _has(ql, ("прогноз", "прогназ", "выработ", "выробот", "мощност", "скок", "сколько", "будет", "болжам", "өндіріс"))
+    if _has(ql, INTENTS["knowledge"], fuzzy=False) and not plan and not (wants_fc and date != context.get("issue_date")):
+        plan.append(("search_knowledge", {"query": q}))
+        return plan
+    if _has(ql, INTENTS["log"]) and date:
         plan.append(("get_agent_log", {"issue_date": date}))
-    if date and not any(p[0] == "get_forecast" for p in plan):
+    explicit = _extract_date(q) or date != context.get("issue_date")
+    if date and (not plan or explicit or wants_fc) and not any(p[0] == "get_forecast" for p in plan):
         plan.append(("get_forecast", {"issue_date": date}))
     return plan or [("search_knowledge", {"query": q})]
 
@@ -194,12 +247,12 @@ def _mock_answer(results, lang="ru"):
             parts.append(answer_from_chunks("", res))
         elif name == "run_forecast":
             parts.append(f"Пересчёт выполнен (run {res['run_id']}, статус {res['status']}).")
-    return "[mock] " + " ".join(parts)
+    return " ".join(parts)
 
 
-def _ask_mock(question, agent_factory, lang):
+def _ask_mock(question, agent_factory, lang, context=None, history=None):
     results = []
-    for name, args in _mock_plan(question):
+    for name, args in _mock_plan(question, context or {}):
         yield {"type": "tool_call", "name": name, "args": args}
         try:
             res = call_tool(name, args, agent_factory)
@@ -210,29 +263,60 @@ def _ask_mock(question, agent_factory, lang):
     yield {"type": "answer", "text": _mock_answer(results, lang)}
 
 
-def ask(question: str, agent_factory, lang: str = "ru"):
-    """Генератор событий: {"type": "tool_call"|"tool_result"|"answer"|"error", ...}.
+_SESSIONS: dict[str, list[dict]] = {}
+HISTORY_TURNS = 8
+
+
+def ask(question: str, agent_factory, lang: str = "ru", mode: str = "fast", session: str = "",
+        context: dict | None = None):
+    """Генератор событий: {"type": "tool_call"|"tool_result"|"thinking"|"answer"|"error", ...}.
     LLM недоступна (сеть, GPU выключен) — тот же сценарий на правилах (mock), без падения."""
     lang = lang if lang in LANG_NAME else "ru"
+    context = context or {}
+    history = _SESSIONS.setdefault(session, []) if session else []
     if llm.is_mock():
-        yield from _ask_mock(question, agent_factory, lang)
+        yield from _ask_mock(question, agent_factory, lang, context, history)
         return
     try:
-        yield from _ask_llm(question, agent_factory, lang)
+        yield from _ask_llm(question, agent_factory, lang, mode, context, history)
     except RuntimeError as e:
         yield {"type": "tool_result", "name": "llm", "result": {"fallback": str(e)}}
-        yield from _ask_mock(question, agent_factory, lang)
+        yield from _ask_mock(question, agent_factory, lang, context, history)
 
 
-def _ask_llm(question: str, agent_factory, lang: str):
-    messages = [{"role": "system", "content": SYSTEM.format(lang=LANG_NAME[lang])},
-                {"role": "user", "content": question}]
+def _remember(history: list, question: str, answer: str):
+    history += [{"role": "user", "content": question}, {"role": "assistant", "content": answer}]
+    del history[:-HISTORY_TURNS * 2]
+
+
+def _context_note(context: dict) -> str:
+    parts = []
+    if context.get("issue_date"):
+        parts.append(f"выбранная дата выпуска {context['issue_date']}")
+    if context.get("turbine"):
+        parts.append(f"объект {context['turbine']} (STATION = вся станция)")
+    return ("Контекст интерфейса: " + ", ".join(parts) + ".") if parts else ""
+
+
+def _ask_llm(question: str, agent_factory, lang: str, mode: str, context: dict, history: list):
+    import time as _t
+    t0 = _t.time()
+    system = SYSTEM.format(lang=LANG_NAME[lang]) + "\n" + _context_note(context)
+    messages = [{"role": "system", "content": system}, *history, {"role": "user", "content": question}]
+    thoughts = []
     for _ in range(MAX_STEPS):
-        msg = llm.chat(messages, strong=True, tools=TOOLS)
+        msg = llm.chat(messages, strong=True, tools=TOOLS, mode=mode)
+        r = msg.pop("_reasoning", None)
+        if r:
+            thoughts.append(r)
         messages.append(msg)
         calls = msg.get("tool_calls") or []
         if not calls:
-            yield {"type": "answer", "text": msg.get("content") or ""}
+            if thoughts:
+                yield {"type": "thinking", "text": "\n\n".join(thoughts)[-6000:], "seconds": round(_t.time() - t0, 1)}
+            answer = msg.get("content") or ""
+            _remember(history, question, answer)
+            yield {"type": "answer", "text": answer}
             return
         for c in calls:
             name = c["function"]["name"]

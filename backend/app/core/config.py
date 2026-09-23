@@ -53,6 +53,7 @@ USE_MOCK_LLM = _bool("USE_MOCK_LLM", True)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL_FAST = os.getenv("OPENAI_MODEL_FAST", "gpt-4o-mini")
 OPENAI_MODEL_STRONG = os.getenv("OPENAI_MODEL_STRONG", "gpt-4o")
+OPENAI_MODEL_REASONING = os.getenv("OPENAI_MODEL_REASONING", "o4-mini")
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "600"))
 
 # Тестовый период ТЗ и январский бэктест (где есть факт).

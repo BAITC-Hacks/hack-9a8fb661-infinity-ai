@@ -31,12 +31,19 @@ def alerts(issue_date: str = Depends(issue_date_param), turbine: str = Query("ST
 
 
 @router.get("/agent")
-def agent_chat(q: str = Query(..., min_length=2, max_length=500),
-               lang: str = Query("ru", pattern="^(ru|kk)$")):
-    """SSE-поток: tool_call / tool_result / answer / done. lang — язык ответа."""
+def agent_chat(q: str = Query(..., min_length=1, max_length=1000),
+               lang: str = Query("ru", pattern="^(ru|kk)$"),
+               mode: str = Query("fast", pattern="^(fast|medium|deep)$"),
+               session: str = Query("", max_length=64, pattern="^[A-Za-z0-9_-]*$"),
+               issue_date: str | None = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+               turbine: str | None = Query(None, pattern="^(STATION|T1|T2)$")):
+    """SSE-поток: tool_call / tool_result / thinking / answer / done.
+    mode — быстрый/средний/думающий; session — память диалога; issue_date/turbine — контекст экрана."""
+    ctx = {"issue_date": issue_date, "turbine": turbine}
+
     def stream():
         try:
-            for ev in ask(q, get_agent, lang):
+            for ev in ask(q, get_agent, lang, mode, session, ctx):
                 yield f"data: {json.dumps(ev, ensure_ascii=False, default=str)}\n\n"
         except Exception as e:
             log.exception("chat failed")

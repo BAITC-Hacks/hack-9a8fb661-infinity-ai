@@ -18,7 +18,7 @@ export function AlertsPanel({ alerts, summary, passport, llm, loading }: { alert
     <aside className="panel !p-0 self-start">
       <div className="flex h-[44px] items-center gap-2 border-b border-line bg-sunk px-3">
         <Bot size={16} className="text-blue" /><span className="text-[14px] font-semibold">{t('alerts')}</span>
-        <span className="mono ml-auto flex items-center gap-1.5 text-mute"><i className="dot size-1.5 rounded-full bg-good" />{t('live')} · {llm.split(' ')[0]}</span>
+        <span className="mono ml-auto flex items-center gap-1.5 text-mute"><i className="dot size-1.5 rounded-full bg-good" />{t('live')} · {llm.split(' ')[0].replace('rules', 'правила')}</span>
       </div>
       <div className="scroll-thin max-h-[720px] space-y-2 overflow-y-auto p-2">
         {text && (

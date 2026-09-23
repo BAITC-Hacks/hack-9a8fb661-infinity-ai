@@ -8,15 +8,10 @@ import { buildTurbine } from '../lib/turbine3d'
 
 interface Props { objects: WindObject[]; wind: number | null; direction: number | null; power: number | null; selected?: number | null; onSelect?: (id: number) => void }
 
-export const FALLBACK: WindObject[] = [
-  { object_id: 1, name: 'Нурлы — турбина 1', latitude: 43.645138889, longitude: 78.535611111, rated_power_mw: 2.5, tower_height_m: 80, rotor_diameter_m: 109, turbine_model: 'Goldwind GW109/2500', metadata_source_url: '' },
-  { object_id: 2, name: 'Нурлы — турбина 2', latitude: 43.643194444, longitude: 78.538833333, rated_power_mw: 2.5, tower_height_m: 80, rotor_diameter_m: 109, turbine_model: 'Goldwind GW109/2500', metadata_source_url: '' },
-]
-
 /** Спутниковая карта с турбинами и 3D-сцена площадки: лопасти крутятся по ветру из прогноза. */
 export function SiteMap({ objects, wind, direction, power, selected, onSelect }: Props) {
   const { t } = useT()
-  const objs = objects.length ? objects : FALLBACK
+  const objs = objects
   const spinSec = wind == null || wind < 2.5 ? 0 : Math.max(1.2, 12 / wind)
   return (
     <section className="panel rise !p-0">
@@ -24,10 +19,10 @@ export function SiteMap({ objects, wind, direction, power, selected, onSelect }:
         <span className="text-[14px] font-semibold">{t('map')}</span>
         <span className="mono ml-auto text-mute">{t('map_hint')} · {wind == null ? '—' : `${wind.toFixed(1)} м/с`}{direction == null ? '' : ` · ${Math.round(direction)}°`}</span>
       </div>
-      <div className="grid md:grid-cols-2">
+      {!objs.length ? <div className="shimmer h-[520px]" /> : <div className="grid md:grid-cols-2">
         <LeafletMap objs={objs} spinSec={spinSec} direction={direction} selected={selected ?? null} onSelect={onSelect} />
         <Scene objs={objs} wind={wind ?? 0} direction={direction ?? 0} power={power ?? 0} />
-      </div>
+      </div>}
     </section>
   )
 }

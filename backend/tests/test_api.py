@@ -16,7 +16,7 @@ def client(forecaster):
 
 def test_health(client):
     r = client.get("/api/health").json()
-    assert r["status"] == "ok" and r["llm"] == "mock" and r["storage"] == "sqlite"
+    assert r["status"] == "ok" and r["llm"] == "rules" and r["storage"] == "sqlite"
 
 
 def test_run_then_read_forecast(client):

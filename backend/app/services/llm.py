@@ -43,6 +43,9 @@ def chat(messages, strong=False, tools=None):
                   temperature=0.2)
     if tools:
         kwargs["tools"] = tools
+    if config.LLM_BASE_URL:
+        # self-hosted Qwen3.8 (vLLM): без режима размышлений — быстрые ответы агента
+        kwargs["extra_body"] = {"chat_template_kwargs": {"enable_thinking": False}}
     resp = _client().chat.completions.create(**kwargs)
     msg = resp.choices[0].message.model_dump(exclude_none=True)
     usage = resp.usage

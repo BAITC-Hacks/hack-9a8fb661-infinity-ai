@@ -15,5 +15,7 @@
    OPENAI_MODEL_FAST=qwen
    OPENAI_MODEL_STRONG=qwen
    ```
-Модель: Qwen2.5-14B-Instruct (Apache 2.0) через vLLM — OpenAI-совместимый API с вызовом
-инструментов, поэтому код агента не меняется. Остановить машину после демо: `brev stop infinity-llm`.
+Модель: Qwen3.8-27B-FP8 (Apache 2.0) через vLLM — OpenAI-совместимый API с вызовом
+инструментов (`qwen3_xml`), поэтому код агента не меняется. Режим размышлений отключается
+на каждом запросе (`enable_thinking=false`) — агенту нужны быстрые ответы.
+Параметры запуска — по официальному рецепту vLLM для Qwen3.8-27B. Остановить машину после демо: `brev stop infinity-llm`.

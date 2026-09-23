@@ -19,13 +19,16 @@ function stepLabel(d: Dict, name: string, args: Record<string, unknown>): string
 }
 
 /** Диалог с агентом: режим (быстрый/средний/думающий), память сессии, контекст экрана. */
-export function useAgentStream(d: Dict, lang: string, onDone?: () => void, context?: { issue_date?: string; turbine?: string }) {
-  const [msgs, setMsgs] = useState<Msg[]>([])
+export function useAgentStream(d: Dict, lang: string, onDone?: () => void, context?: { issue_date?: string; turbine?: string },
+  initial?: { session: string; msgs: Msg[] }, onChange?: (msgs: Msg[]) => void) {
+  const [msgs, setMsgs] = useState<Msg[]>(initial?.msgs ?? [])
   const [full, setFull] = useState('')
   const [shown, setShown] = useState(0)
   const [busy, setBusy] = useState(false)
   const [mode, setMode] = useState<AgentMode>('fast')
-  const session = useRef(newSession())
+  const session = useRef(initial?.session ?? newSession())
+  const onChangeRef = useRef(onChange); onChangeRef.current = onChange
+  useEffect(() => { if (!busy) onChangeRef.current?.(msgs) }, [msgs, busy])
   const es = useRef<EventSource | null>(null)
   const ctxRef = useRef(context); ctxRef.current = context
 

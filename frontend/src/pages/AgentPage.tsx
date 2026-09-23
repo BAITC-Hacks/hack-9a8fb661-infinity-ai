@@ -1,41 +1,63 @@
-import { HardHat, Zap } from 'lucide-react'
-import { ChatView } from '../features/ChatView'
+import { HardHat, MessageSquare, Plus, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api/client'
-import { useAgentStream } from '../hooks/useAgentStream'
+import { ChatView } from '../features/ChatView'
+import { PipelineRail } from '../features/PipelineRail'
+import { useAgentStream, type Msg } from '../hooks/useAgentStream'
 import { useAsync } from '../hooks/useAsync'
 import type { Ctx } from '../lib/ctx'
 import { useT } from '../lib/i18n'
 
-const TITLE: Record<string, string> = {
-  fetch_forecast: 'Прогноз погоды', prepare_features: 'Подготовка данных', train_model: 'Обучение модели',
-  predict: 'Прогноз', analyze: 'Анализ результата', evaluate: 'Оценка', replan: 'Перепланирование', report: 'Отчёт LLM', error: 'Ошибка',
-}
+interface Conv { id: string; session: string; title: string; updated: number; msgs: Msg[] }
+const KEY = 'infinity-chats'
+const load = (): Conv[] => { try { return JSON.parse(localStorage.getItem(KEY) ?? '[]') } catch { return [] } }
+const store = (c: Conv[]) => { try { localStorage.setItem(KEY, JSON.stringify(c.slice(0, 40))) } catch { /* хранилище недоступно */ } }
+const fresh = (): Conv => { const id = Math.random().toString(36).slice(2, 12); return { id, session: id, title: '', updated: Date.now(), msgs: [] } }
 
-/** Страница агента: слева цикл агента для выбранного выпуска, справа полноэкранный диалог. */
+/** Страница агента как в ChatGPT: слева чаты, по центру диалог, справа компактный цикл агента. */
 export function AgentPage({ ctx }: { ctx: Ctx }) {
-  const { t, d, lang } = useT()
-  const { issueDate, tick, refresh, llm, turbine } = ctx
+  const { t } = useT()
+  const { issueDate, tick, llm } = ctx
   const log = useAsync(() => api.log(issueDate), [issueDate, tick])
-  const chat = useAgentStream(d, lang, refresh, { issue_date: issueDate, turbine })
+  const [convs, setConvs] = useState<Conv[]>(() => { const c = load(); return c.length ? c : [fresh()] })
+  const [active, setActive] = useState(convs[0].id)
+  useEffect(() => store(convs), [convs])
+  const conv = convs.find((c) => c.id === active) ?? convs[0]
+
+  const newChat = () => { const c = fresh(); setConvs((xs) => [c, ...xs.filter((x) => x.msgs.length)]); setActive(c.id) }
+  const remove = (id: string) => setConvs((xs) => { const r = xs.filter((x) => x.id !== id); const n = r.length ? r : [fresh()]; if (id === active) setActive(n[0].id); return n })
+  const save = useCallback((id: string, msgs: Msg[]) => setConvs((xs) => xs.map((x) => x.id !== id ? x
+    : { ...x, msgs, updated: msgs.length !== x.msgs.length ? Date.now() : x.updated, title: x.title || (msgs.find((m) => m.role === 'user')?.text ?? '').slice(0, 48) })), [])
+
   return (
-    <main className="grid gap-4 p-4 xl:grid-cols-[420px_1fr]">
-      <section className="panel !p-0">
-        <div className="flex h-[44px] items-center gap-2 border-b border-line bg-sunk px-3"><span className="text-[14px] font-semibold">{t('pipeline')}</span><span className="mono ml-auto text-mute">{issueDate}</span></div>
-        <ol className="scroll-thin max-h-[640px] space-y-1 overflow-y-auto p-2">
-          {(log.data ?? []).map((e, i) => (
-            <li key={e.id} className="pop rounded-md border border-line/60 px-2.5 py-2" style={{ animationDelay: `${i * 40}ms` }}>
-              <div className="flex items-center gap-2 text-[13px]"><Zap size={13} className={e.reason ? 'text-warn' : 'text-blue'} /><span className="font-medium">{TITLE[e.tool] ?? e.tool}</span><span className="mono ml-auto text-mute">{e.ts.slice(11, 19)}</span></div>
-              {e.reason && <div className="mt-1 text-[12px] text-warn">{e.reason}</div>}
-              {e.tool === 'report' && e.result != null && <p className="mt-1 text-[13px] leading-relaxed">{String((e.result as { text?: string }).text ?? '').replace(/\[mock\]\s*/g, '')}</p>}
-              {e.tool !== 'report' && e.result != null && <div className="mono mt-0.5 truncate text-mute">{JSON.stringify(e.result).slice(0, 140)}</div>}
-            </li>))}
-        </ol>
+    <main className="grid h-[calc(100vh-42px)] gap-3 p-3 lg:grid-cols-[250px_1fr] xl:grid-cols-[250px_1fr_300px]">
+      <aside className="panel flex min-h-0 flex-col !p-2">
+        <button onClick={newChat} className="mb-2 flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-[13px] transition-colors hover:border-blue"><Plus size={15} />{t('new_chat')}</button>
+        <div className="lbl px-2 pb-1">{t('chats')}</div>
+        <div className="scroll-thin min-h-0 flex-1 space-y-0.5 overflow-y-auto">
+          {convs.filter((c) => c.msgs.length || c.id === active).sort((a, b) => b.updated - a.updated).map((c) => (
+            <div key={c.id} className={`group flex items-center gap-2 rounded-md px-2 py-2 text-[13px] ${c.id === active ? 'bg-blue/10 text-text' : 'text-mute hover:bg-sunk hover:text-text'}`}>
+              <button onClick={() => setActive(c.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left"><MessageSquare size={13} className="shrink-0" /><span className="truncate">{c.title || t('untitled')}</span></button>
+              <button onClick={() => remove(c.id)} title={t('del_chat')} className="opacity-0 transition-opacity hover:text-bad group-hover:opacity-100"><Trash2 size={13} /></button>
+            </div>))}
+        </div>
+      </aside>
+
+      <section className="panel flex min-h-0 flex-col !p-0">
+        <div className="flex h-[40px] items-center gap-2 border-b border-line bg-sunk px-3"><HardHat size={15} className="text-blue" />
+          <span className="truncate text-[13px] font-semibold">{conv.title || t('chat_page')}</span>
+          <span className="mono ml-auto hidden text-mute md:inline">{llm.replace('rules', 'правила')}</span></div>
+        <ChatPane key={conv.id} conv={conv} ctx={ctx} onSave={save} />
       </section>
-      <section className="panel flex h-[calc(100vh-110px)] min-h-[520px] flex-col !p-0">
-        <div className="flex h-[44px] items-center gap-2 border-b border-line bg-sunk px-3"><HardHat size={16} className="text-blue" /><span className="text-[14px] font-semibold">{t('chat_page')}</span>
-          <span className="mono ml-auto text-mute">{chat.busy ? t('working') : t('online')} · {llm.replace('rules', 'правила')}</span></div>
-        <ChatView {...chat} />
-      </section>
+
+      <div className="hidden min-h-0 overflow-y-auto xl:block"><PipelineRail log={log.data ?? []} issueDate={issueDate} /></div>
     </main>
   )
+}
+
+function ChatPane({ conv, ctx, onSave }: { conv: Conv; ctx: Ctx; onSave: (id: string, m: Msg[]) => void }) {
+  const { d, lang } = useT()
+  const chat = useAgentStream(d, lang, ctx.refresh, { issue_date: ctx.issueDate, turbine: ctx.turbine },
+    { session: conv.session, msgs: conv.msgs }, (m) => onSave(conv.id, m))
+  return <ChatView {...chat} />
 }

@@ -67,7 +67,41 @@ def _chart_png(df: pd.DataFrame, title: str) -> bytes:
 
 
 def _clean(text: str) -> list[str]:
-    return [re.sub(r"\*\*(.+?)\*\*", r"\1", ln).strip() for ln in (text or "").splitlines()]
+    return [re.sub(r"\*\*(.+?)\*\*", r"\1", ln).strip() for ln in (text or "").strip().splitlines()]
+
+
+def _blocks(text: str):
+    """Markdown ответа -> блоки: ('h', t) заголовок, ('li', t) пункт, ('ol', t), ('table', rows), ('p', t)."""
+    out, table = [], []
+    for raw in (text or "").strip().splitlines():
+        ln = raw.strip()
+        if ln.startswith("|") and ln.endswith("|"):
+            cells = [c.strip() for c in ln.strip("|").split("|")]
+            if not all(re.fullmatch(r":?-{2,}:?", c) for c in cells if c):
+                table.append(cells)
+            continue
+        if table:
+            out.append(("table", table)); table = []
+        if not ln:
+            continue
+        if ln.startswith("#"):
+            out.append(("h", ln.lstrip("# ").strip()))
+        elif re.match(r"^[-•*] ", ln):
+            out.append(("li", ln[2:]))
+        elif re.match(r"^\d+[.)] ", ln):
+            out.append(("ol", re.sub(r"^\d+[.)] ", "", ln)))
+        else:
+            out.append(("p", ln))
+    if table:
+        out.append(("table", table))
+    return out
+
+
+def _runs(par, text: str):
+    """Жирный **...** -> отдельные runs."""
+    for i, part in enumerate(re.split(r"\*\*(.+?)\*\*", text)):
+        if part:
+            par.add_run(part).bold = i % 2 == 1
 
 
 def build_docx(question: str, answer: str, issue_date: str, turbine: str) -> bytes:
@@ -91,15 +125,23 @@ def build_docx(question: str, answer: str, issue_date: str, turbine: str) -> byt
     doc.add_heading("Вопрос", level=1)
     doc.add_paragraph(question or "—")
     doc.add_heading("Ответ агента", level=1)
-    for ln in _clean(answer):
-        if not ln:
-            continue
-        if ln.startswith(("- ", "• ", "* ")):
-            doc.add_paragraph(ln[2:], style="List Bullet")
-        elif re.match(r"^\d+[.)] ", ln):
-            doc.add_paragraph(re.sub(r"^\d+[.)] ", "", ln), style="List Number")
+    for kind, val in _blocks(answer):
+        if kind == "h":
+            doc.add_heading(re.sub(r"\*\*", "", val), level=2)
+        elif kind == "table":
+            width = max(len(r) for r in val)
+            tb = doc.add_table(rows=0, cols=width); tb.style = "Light Grid Accent 1"
+            for ri, row in enumerate(val):
+                cells = tb.add_row().cells
+                for ci in range(width):
+                    txt = re.sub(r"\*\*", "", row[ci]) if ci < len(row) else ""
+                    cells[ci].text = txt
+                    if ri == 0:
+                        for r in cells[ci].paragraphs[0].runs:
+                            r.bold = True
         else:
-            doc.add_paragraph(ln)
+            par = doc.add_paragraph(style={"li": "List Bullet", "ol": "List Number"}.get(kind))
+            _runs(par, val)
 
     if not df.empty:
         doc.add_heading("Ключевые показатели", level=1)
@@ -164,9 +206,27 @@ def build_xlsx(question: str, answer: str, issue_date: str, turbine: str) -> byt
     ws["A2"].font = Font(color="59636E")
     ws["A4"] = "Вопрос"; ws["A4"].font = Font(bold=True); ws["A5"] = question
     ws["A7"] = "Ответ"; ws["A7"].font = Font(bold=True)
-    for i, ln in enumerate([x for x in _clean(answer) if x], start=8):
-        ws.cell(row=i, column=1, value=ln).alignment = Alignment(wrap_text=True, vertical="top")
-    ws.column_dimensions["A"].width = 120
+    row_i = 8
+    for kind, val in _blocks(answer):
+        if kind == "table":
+            for ri, row in enumerate(val):
+                for ci, v in enumerate(row, start=1):
+                    c = ws.cell(row=row_i, column=ci, value=re.sub(r"\*\*", "", v))
+                    c.border = thin
+                    if ri == 0:
+                        c.fill = head_fill; c.font = head_font
+                row_i += 1
+            row_i += 1
+            continue
+        txt = re.sub(r"\*\*", "", val)
+        c = ws.cell(row=row_i, column=1, value=("• " + txt) if kind in ("li", "ol") else txt)
+        c.alignment = Alignment(wrap_text=True, vertical="top")
+        if kind == "h":
+            c.font = Font(bold=True, size=12)
+        row_i += 1
+    ws.column_dimensions["A"].width = 70
+    for col in "BCDEF":
+        ws.column_dimensions[col].width = 22
 
     if not df.empty:
         wf = wb.create_sheet("Прогноз по часам")

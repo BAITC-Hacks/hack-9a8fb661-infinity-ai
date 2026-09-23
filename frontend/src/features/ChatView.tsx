@@ -2,6 +2,7 @@ import { Brain, Check, ChevronRight, FileSpreadsheet, FileText, Gauge, Loader2, 
 import { api } from '../api/client'
 import { useEffect, useRef, useState } from 'react'
 import type { AgentMode, Attached, Msg } from '../hooks/useAgentStream'
+import { Markdown } from './Markdown'
 import { useT } from '../lib/i18n'
 
 interface Props {
@@ -69,7 +70,7 @@ export function ChatView({ msgs, busy, ask, mode, setMode, reset, compact, sessi
                 <summary className="flex cursor-pointer list-none items-center gap-1.5"><Brain size={13} className="text-curve" /><ChevronRight size={12} className="transition-transform group-open:rotate-90" />{t('thought', { s: m.thinking.seconds })}</summary>
                 <p className="mt-1.5 max-h-48 overflow-y-auto whitespace-pre-line leading-relaxed">{m.thinking.text}</p>
               </details>)}
-            {m.text ? <div className={`${compact ? 'max-w-[95%]' : 'max-w-[80%]'} whitespace-pre-line rounded-2xl rounded-bl-md border border-line bg-bg px-3.5 py-2.5 text-[15px] leading-relaxed ${m.error ? 'text-warn' : ''}`}>{m.text.replace(/\*\*(.+?)\*\*/g, '$1')}</div>
+            {m.text ? <div className={`${compact ? 'max-w-[98%]' : 'max-w-[88%]'} rounded-2xl rounded-bl-md border border-line bg-bg px-4 py-3 ${m.error ? 'text-warn' : ''}`}><Markdown text={m.text} /></div>
               : <div className="flex items-center gap-2 px-1 py-2 text-[12px] text-mute">
                   <span className="flex gap-1"><i className="dot size-1.5 rounded-full bg-mute" /><i className="dot size-1.5 rounded-full bg-mute" /><i className="dot size-1.5 rounded-full bg-mute" /></span>
                   {m.mode === 'deep' ? t('m_deep_d') : m.mode === 'medium' ? t('m_medium_d') : ''}</div>}

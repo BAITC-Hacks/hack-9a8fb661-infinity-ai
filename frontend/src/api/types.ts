@@ -1,0 +1,72 @@
+export type TurbineId = 'STATION' | 'T1' | 'T2'
+export type RunStatus = 'ok' | 'low_confidence' | 'failed'
+
+export interface Run {
+  id: number
+  created_at: string
+  issue_date: string
+  mode: 'backtest' | 'forecast'
+  status: RunStatus
+  model_trained_until: string | null
+  weather_signature: number | null
+  summary: string | null
+}
+
+export interface ForecastRow {
+  issue_date: string
+  target_time: string
+  lead_hours: number
+  turbine: string
+  p_hat: number
+  p_curve: number | null
+  v_eq: number | null
+  actual: number | null
+  baseline: number | null
+}
+
+export interface ForecastResponse { run: Run; rows: ForecastRow[] }
+
+export interface MetricRow {
+  turbine?: string | null
+  bucket?: string | null
+  issue_date?: string | null
+  n: number
+  mae: number
+  rmse: number
+  mae_base: number | null
+  skill: number | null
+}
+
+export interface MetricsResponse {
+  note: string | null
+  by_turbine_and_horizon: MetricRow[]
+  station_by_issue_date: MetricRow[]
+}
+
+export interface AgentLogEntry {
+  id: number
+  ts: string
+  session: string
+  issue_date: string | null
+  tool: string
+  params: unknown
+  result: unknown
+  reason: string | null
+}
+
+export interface Health { status: string; storage: string; llm: string; weather_offline: boolean }
+
+export interface TimelinePoint {
+  issue_date: string
+  target_time: string
+  lead_hours: number
+  p_hat: number
+  actual: number | null
+}
+
+export type AgentEvent =
+  | { type: 'tool_call'; name: string; args: Record<string, unknown> }
+  | { type: 'tool_result'; name: string; result: unknown }
+  | { type: 'answer'; text: string }
+  | { type: 'error'; text: string }
+  | { type: 'done' }

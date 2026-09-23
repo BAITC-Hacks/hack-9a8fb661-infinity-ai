@@ -1,0 +1,67 @@
+"""Настройки из окружения (.env). Секреты — только через переменные окружения."""
+import os
+from dataclasses import dataclass
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+ROOT = Path(__file__).resolve().parents[3]
+load_dotenv(ROOT / ".env")
+
+
+def _bool(name: str, default: bool) -> bool:
+    return os.getenv(name, str(default)).strip().lower() in ("1", "true", "yes", "on")
+
+
+@dataclass(frozen=True)
+class Turbine:
+    id: str
+    lat: float
+    lon: float
+    raw_file: str
+
+
+TURBINES = (
+    Turbine("T1", 43.645150, 78.535604, "turbine1.csv"),
+    Turbine("T2", 43.643198, 78.538828, "turbine2.csv"),
+)
+# Обе турбины в одной ячейке сетки Open-Meteo — погодный ряд один на станцию.
+SITE_LAT = round(sum(t.lat for t in TURBINES) / len(TURBINES), 5)
+SITE_LON = round(sum(t.lon for t in TURBINES) / len(TURBINES), 5)
+
+DATA_DIR = Path(os.getenv("DATA_DIR", ROOT / "data"))
+RAW_DIR = DATA_DIR / "raw"
+PROCESSED_DIR = DATA_DIR / "processed"
+CACHE_DIR = DATA_DIR / "cache"
+OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", ROOT / "outputs"))
+DB_PATH = Path(os.getenv("DB_PATH", DATA_DIR / "app.db"))
+
+SOURCE_UTC_OFFSET = int(os.getenv("SOURCE_UTC_OFFSET", "5"))
+WEATHER_OFFLINE = _bool("WEATHER_OFFLINE", False)
+
+USE_MOCK_LLM = _bool("USE_MOCK_LLM", True)
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL_FAST = os.getenv("OPENAI_MODEL_FAST", "gpt-4o-mini")
+OPENAI_MODEL_STRONG = os.getenv("OPENAI_MODEL_STRONG", "gpt-4o")
+LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "600"))
+
+# Тестовый период ТЗ и январский бэктест (где есть факт).
+HISTORY_END = "2026-01-31 23:00"
+FORECAST_ISSUES = ("2026-01-31", "2026-02-27")
+BACKTEST_ISSUES = ("2026-01-01", "2026-01-30")
+HORIZON_H = 48
+
+# Хранилище: clickhouse (docker compose) | sqlite (без сервера)
+DB_BACKEND = os.getenv("DB_BACKEND", "sqlite").strip().lower()
+CLICKHOUSE_HOST = os.getenv("CLICKHOUSE_HOST", "localhost")
+CLICKHOUSE_PORT = int(os.getenv("CLICKHOUSE_PORT", "8123"))
+CLICKHOUSE_USER = os.getenv("CLICKHOUSE_USER", "default")
+CLICKHOUSE_PASSWORD = os.getenv("CLICKHOUSE_PASSWORD", "")
+CLICKHOUSE_DB = os.getenv("CLICKHOUSE_DB", "default")
+
+# OpenAI-совместимый endpoint: пусто = api.openai.com; для vLLM на NVIDIA Brev —
+# http://localhost:8001/v1 (через brev port-forward)
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "").strip() or None
+
+CORS_ORIGINS = [o.strip() for o in os.getenv(
+    "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if o.strip()]

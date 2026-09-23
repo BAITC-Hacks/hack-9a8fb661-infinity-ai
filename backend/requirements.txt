@@ -1,0 +1,11 @@
+pandas==3.0.6
+numpy==2.5.3
+scikit-learn==1.9.1
+requests==2.34.2
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+openai==3.19.0
+python-dotenv==1.2.3
+pytest==9.1.1
+httpx==0.28.1
+clickhouse-connect==1.9.0

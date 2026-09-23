@@ -1,44 +1,66 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
 import type { AgentEvent } from '../api/types'
+import { ruDate } from '../lib/format'
 
-export interface ToolLine { id: number; name: string; args: string; result?: string }
+export interface Step { label: string; done: boolean }
+export interface Msg { id: number; role: 'user' | 'agent'; text: string; steps: Step[]; error?: boolean }
 
 let seq = 1
-const clip = (s: string, n = 200) => (s.length > n ? `${s.slice(0, n)}…` : s)
 
-/** SSE-диалог с агентом: журнал вызовов инструментов + ответ, выводимый по мере поступления. */
+/** Человеческое описание вызова инструмента вместо сырого лога. */
+function stepLabel(name: string, args: Record<string, unknown>): string {
+  const d = typeof args.issue_date === 'string' ? ruDate(args.issue_date) : ''
+  switch (name) {
+    case 'get_forecast': return `Смотрю прогноз на ${d}`
+    case 'get_metrics': return 'Проверяю точность модели'
+    case 'get_agent_log': return `Разбираю решения за ${d}`
+    case 'run_forecast': return `Пересчитываю прогноз на ${d}`
+    default: return 'Собираю данные'
+  }
+}
+
 export function useAgentStream(onDone?: () => void) {
-  const [lines, setLines] = useState<ToolLine[]>([])
-  const [answer, setAnswer] = useState('')
-  const [shown, setShown] = useState(0)
-  const [error, setError] = useState<string | null>(null)
+  const [msgs, setMsgs] = useState<Msg[]>([])
+  const [full, setFull] = useState('')        // полный текст текущего ответа
+  const [shown, setShown] = useState(0)       // сколько символов уже «напечатано»
   const [busy, setBusy] = useState(false)
   const es = useRef<EventSource | null>(null)
 
+  const patchLast = (f: (m: Msg) => Msg) => setMsgs((xs) => xs.map((m, i) => (i === xs.length - 1 ? f(m) : m)))
+
   useEffect(() => {
-    if (shown >= answer.length) return
-    const id = setTimeout(() => setShown((n) => Math.min(answer.length, n + 3)), 12)
+    if (shown >= full.length) return
+    const id = setTimeout(() => {
+      const n = Math.min(full.length, shown + 4)
+      setShown(n)
+      patchLast((m) => ({ ...m, text: full.slice(0, n) }))
+    }, 14)
     return () => clearTimeout(id)
-  }, [answer, shown])
+  }, [full, shown])
 
   const ask = useCallback((question: string) => {
     es.current?.close()
-    setLines([]); setAnswer(''); setShown(0); setError(null); setBusy(true)
+    setFull(''); setShown(0); setBusy(true)
+    setMsgs((xs) => [...xs, { id: seq++, role: 'user', text: question, steps: [] },
+      { id: seq++, role: 'agent', text: '', steps: [] }])
     const src = new EventSource(api.agentStreamUrl(question))
     es.current = src
     src.onmessage = (e) => {
       const ev = JSON.parse(e.data) as AgentEvent
       if (ev.type === 'tool_call')
-        setLines((xs) => [...xs, { id: seq++, name: ev.name, args: clip(JSON.stringify(ev.args)) }])
+        patchLast((m) => ({ ...m, steps: [...m.steps, { label: stepLabel(ev.name, ev.args), done: false }] }))
       else if (ev.type === 'tool_result')
-        setLines((xs) => xs.map((l, i) => (i === xs.length - 1 ? { ...l, result: clip(JSON.stringify(ev.result)) } : l)))
-      else if (ev.type === 'answer') setAnswer(ev.text)
-      else if (ev.type === 'error') setError(ev.text)
+        patchLast((m) => ({ ...m, steps: m.steps.map((s, i) => (i === m.steps.length - 1 ? { ...s, done: true } : s)) }))
+      else if (ev.type === 'answer') setFull(ev.text.replace(/^\[mock\]\s*/, '').replace(/\s*\[mock\]\s*/g, ' '))
+      else if (ev.type === 'error') patchLast((m) => ({ ...m, text: `Не получилось: ${ev.text}`, error: true }))
       else if (ev.type === 'done') { src.close(); setBusy(false); onDone?.() }
     }
-    src.onerror = () => { src.close(); setBusy(false); setError((x) => x ?? 'Соединение с агентом прервано') }
+    src.onerror = () => {
+      src.close(); setBusy(false)
+      patchLast((m) => (m.text ? m : { ...m, text: 'Связь с агентом прервалась, попробуйте ещё раз.', error: true }))
+    }
   }, [onDone])
 
-  return { lines, answer: answer.slice(0, shown), error, busy, ask }
+  return { msgs, busy, ask }
 }

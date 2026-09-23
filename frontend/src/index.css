@@ -21,3 +21,19 @@ body { @apply bg-bg text-text font-sans text-base antialiased; }
 .panel { @apply rounded-[10px] border border-line bg-panel p-4; }
 .field { @apply rounded-lg border border-line bg-bg px-3 py-1.5 text-sm text-text outline-none focus:border-blue; color-scheme: dark; }
 .scroll-thin { scrollbar-width: thin; scrollbar-color: var(--color-line) transparent; }
+
+/* --- движение --- */
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes pop { from { opacity: 0; transform: translateY(12px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes blink { 0%, 80%, 100% { opacity: .2; } 40% { opacity: 1; } }
+@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(88,166,255,.45); } 100% { box-shadow: 0 0 0 14px rgba(88,166,255,0); } }
+.rise { animation: rise .55s cubic-bezier(.22,1,.36,1) both; }
+.pop { animation: pop .35s cubic-bezier(.22,1,.36,1) both; }
+.dot { animation: blink 1.2s infinite both; }
+.dot:nth-child(2) { animation-delay: .2s; } .dot:nth-child(3) { animation-delay: .4s; }
+.pulse { animation: pulse-ring 2s infinite; }
+.lift { transition: transform .2s ease, border-color .2s ease; }
+.lift:hover { transform: translateY(-3px); border-color: var(--color-blue); }
+.panel { transition: border-color .25s ease; }
+.panel:hover { border-color: #3d444d; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

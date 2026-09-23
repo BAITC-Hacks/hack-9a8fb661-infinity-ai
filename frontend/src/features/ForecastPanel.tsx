@@ -9,6 +9,7 @@ export const ISSUE_MIN = '2026-01-01'
 export const ISSUE_MAX = '2026-02-27'
 
 interface Props {
+  animKey: string
   rows: ForecastRow[]
   issueDate: string
   onIssue: (d: string) => void
@@ -18,7 +19,7 @@ interface Props {
   error: string | null
 }
 
-export function ForecastPanel({ rows, issueDate, onIssue, horizon, onHorizon, band, error }: Props) {
+export function ForecastPanel({ animKey, rows, issueDate, onIssue, horizon, onHorizon, band, error }: Props) {
   const data = rows.map((r, i) => ({
     i, t: r.target_time, p: r.p_hat, actual: r.actual,
     range: [Math.max(0, r.p_hat - band(r.lead_hours)), Math.min(1, r.p_hat + band(r.lead_hours))],
@@ -28,7 +29,7 @@ export function ForecastPanel({ rows, issueDate, onIssue, horizon, onHorizon, ba
   const mae = fact.length ? fact.reduce((a, r) => a + Math.abs(r.actual! - r.p_hat), 0) / fact.length : null
 
   return (
-    <Panel title="Прогноз и факт" controls={<>
+    <Panel delay={250} title="Прогноз и факт" controls={<>
       <input type="date" className="field num" value={issueDate} min={ISSUE_MIN} max={ISSUE_MAX}
         onChange={(e) => e.target.value && onIssue(e.target.value)} />
       <Segmented value={horizon} onChange={onHorizon} options={[{ value: 24, label: '24 ч' }, { value: 48, label: '48 ч' }]} />
@@ -37,16 +38,16 @@ export function ForecastPanel({ rows, issueDate, onIssue, horizon, onHorizon, ba
         <>
           <div className="h-80">
             <ResponsiveContainer>
-              <ComposedChart data={data} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+              <ComposedChart key={animKey} data={data} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke={LINE} strokeDasharray="4 4" vertical={false} />
                 <XAxis dataKey="i" ticks={ticks} tickFormatter={(i) => hhmm(data[i].t)} tick={{ fill: MUTE, fontSize: 13 }}
                   tickLine={false} axisLine={{ stroke: LINE }} />
                 <YAxis domain={[0, 1]} ticks={[0, 0.5, 1]} tickFormatter={(v) => pct(v)} tick={{ fill: MUTE, fontSize: 13 }}
                   tickLine={false} axisLine={false} width={44} />
                 <Tooltip content={<Tip data={data} />} cursor={{ stroke: LINE }} isAnimationActive={false} />
-                <Area dataKey="range" stroke="none" fill={BLUE} fillOpacity={0.18} isAnimationActive={false} />
-                <Line dataKey="actual" stroke={WHITE} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} />
-                <Line dataKey="p" stroke={BLUE} strokeWidth={2} strokeDasharray="6 4" dot={false} isAnimationActive={false} />
+                <Area dataKey="range" stroke="none" fill={BLUE} fillOpacity={0.18} isAnimationActive animationDuration={900} animationEasing="ease-out" />
+                <Line dataKey="actual" stroke={WHITE} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive animationDuration={900} animationEasing="ease-out" />
+                <Line dataKey="p" stroke={BLUE} strokeWidth={2} strokeDasharray="6 4" dot={false} isAnimationActive animationDuration={900} animationEasing="ease-out" />
               </ComposedChart>
             </ResponsiveContainer>
           </div>

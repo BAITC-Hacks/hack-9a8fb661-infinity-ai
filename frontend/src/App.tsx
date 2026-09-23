@@ -22,10 +22,8 @@ export default function App() {
   const [tick, setTick] = useState(0)
   const refresh = useCallback(() => setTick((t) => t + 1), [])
 
-  const health = useAsync(api.health, [])
   const metrics = useAsync(api.metrics, [tick])
   const forecast = useAsync(() => api.forecast(issueDate, turbine), [issueDate, turbine, tick])
-  const log = useAsync(() => api.log(issueDate), [issueDate, tick])
   const timeline = useAsync(() => api.timeline(turbine), [turbine, tick])
   const curve = useAsync(() => api.powerCurve(turbine), [turbine])
 
@@ -48,11 +46,11 @@ export default function App() {
 
   return (
     <div className="min-h-full pl-14">
-      <Sidebar turbine={turbine} onTurbine={setTurbine} onRun={run} running={running} runMsg={runMsg} health={health.data} />
+      <Sidebar turbine={turbine} onTurbine={setTurbine} onRun={run} running={running} runMsg={runMsg} />
 
       <main className="mx-auto max-w-[1400px] space-y-4 p-5">
         <header className="flex flex-wrap items-baseline justify-between gap-2">
-          <h1 className="text-[22px] font-semibold">{NAMES[turbine]} · выработка на {horizon} ч</h1>
+          <h1 key={turbine + horizon} className="rise text-[22px] font-semibold">{NAMES[turbine]} · выработка на {horizon} ч</h1>
           {status && (
             <span className={`text-sm ${status === 'ok' ? 'text-mute' : 'text-warn'}`}>
               {status === 'ok' ? 'данные полные' : 'пониженная достоверность'}
@@ -61,14 +59,14 @@ export default function App() {
         </header>
 
         <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
-          <Tile label="Энергия" value={k.energy} unit="ч·Pном" />
-          <Tile label="Средняя мощность" value={k.mean} />
-          <Tile label="Пик" value={k.peak} />
-          <Tile label="MAE выпуска" value={k.mae} />
-          <Tile label="Выигрыш у базы" value={k.skill} tone={k.tone} />
+          <Tile delay={0} label="Энергия" value={k.energy} format={(v) => v.toFixed(1)} unit="ч·Pном" />
+          <Tile delay={60} label="Средняя мощность" value={k.mean} format={(v) => pct(v)} />
+          <Tile delay={120} label="Пик" value={k.peak} format={(v) => pct(v)} />
+          <Tile delay={180} label="MAE выпуска" value={k.mae} format={(v) => v.toFixed(3)} />
+          <Tile delay={240} label="Выигрыш у базы" value={k.skill} format={(v) => `${v > 0 ? '+' : ''}${pct(v)}`} tone={k.tone} />
         </div>
 
-        <ForecastPanel rows={rows} issueDate={issueDate}
+        <ForecastPanel animKey={`${issueDate}-${turbine}-${horizon}`} rows={rows} issueDate={issueDate}
           onIssue={(d) => d >= ISSUE_MIN && d <= ISSUE_MAX && setIssueDate(d)}
           horizon={horizon} onHorizon={setHorizon} band={band} error={forecast.error} />
 
@@ -80,7 +78,7 @@ export default function App() {
         <TestPeriodPanel points={timeline.data ?? []} error={timeline.error} />
       </main>
 
-      <AgentWidget pipelineLog={log.data ?? []} onChanged={refresh} />
+      <AgentWidget onChanged={refresh} />
     </div>
   )
 }
@@ -95,11 +93,11 @@ function kpis(rows: { p_hat: number; actual: number | null; baseline: number | n
   const skill = mae != null && maeB ? 1 - mae / maeB : null
   const tone: Tone = skill == null ? 'neutral' : skill > 0 ? 'good' : 'warn'
   return {
-    energy: p.length ? energy.toFixed(1) : '—',
-    mean: p.length ? pct(energy / p.length) : '—',
-    peak: p.length ? pct(Math.max(...p)) : '—',
-    mae: mae != null ? mae.toFixed(3) : '—',
-    skill: skill != null ? `${skill > 0 ? '+' : ''}${pct(skill)}` : '—',
+    energy: p.length ? energy : null,
+    mean: p.length ? energy / p.length : null,
+    peak: p.length ? Math.max(...p) : null,
+    mae,
+    skill,
     tone,
   }
 }

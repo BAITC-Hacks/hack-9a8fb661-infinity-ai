@@ -10,7 +10,7 @@ export function Segmented<T extends string | number>({ value, options, onChange 
     <div className="inline-flex overflow-hidden rounded-lg border border-line">
       {options.map((o) => (
         <button key={o.value} onClick={() => onChange(o.value)}
-          className={`px-3 py-1.5 text-sm font-medium ${o.value === value ? 'bg-blue text-ink' : 'text-mute hover:text-text'}`}>
+          className={`px-3 py-1.5 text-sm font-medium transition-colors duration-200 ${o.value === value ? 'bg-blue text-ink' : 'text-mute hover:text-text'}`}>
           {o.label}
         </button>
       ))}

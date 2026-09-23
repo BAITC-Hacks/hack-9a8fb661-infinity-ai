@@ -10,7 +10,7 @@ export function TestPeriodPanel({ points, error }: { points: TimelinePoint[]; er
   const data = points.filter((p) => p.issue_date >= '2026-01-31').map((p) => ({ t: p.target_time, p: p.p_hat }))
   const ticks = data.filter((_, i) => i % (24 * 5) === 0).map((d) => d.t)
   return (
-    <Panel title="Тестовый период · февраль" controls={
+    <Panel delay={500} title="Тестовый период · февраль" controls={
       <a href={api.exportCsvUrl} className="rounded-lg border border-line px-3 py-1.5 text-sm text-blue hover:border-blue">forecasts.csv</a>}>
       {error ? <Problem>Период не загрузился: {error}</Problem> : !data.length ? <Empty>Прогнозов на февраль нет.</Empty> : (
         <div className="h-56">
@@ -19,7 +19,7 @@ export function TestPeriodPanel({ points, error }: { points: TimelinePoint[]; er
               <CartesianGrid stroke={LINE} strokeDasharray="4 4" vertical={false} />
               <XAxis dataKey="t" ticks={ticks} tickFormatter={ddmm} tick={{ fill: MUTE, fontSize: 13 }} tickLine={false} axisLine={{ stroke: LINE }} />
               <YAxis domain={[0, 1]} ticks={[0, 0.5, 1]} tickFormatter={(v) => pct(v)} tick={{ fill: MUTE, fontSize: 13 }} tickLine={false} axisLine={false} width={44} />
-              <Area dataKey="p" stroke={BLUE} strokeWidth={2} strokeDasharray="6 4" fill={BLUE} fillOpacity={0.1} isAnimationActive={false} />
+              <Area dataKey="p" stroke={BLUE} strokeWidth={2} strokeDasharray="6 4" fill={BLUE} fillOpacity={0.1} isAnimationActive animationDuration={1200} animationEasing="ease-out" />
             </AreaChart>
           </ResponsiveContainer>
         </div>

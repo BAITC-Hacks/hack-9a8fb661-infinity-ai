@@ -8,6 +8,7 @@ import type { Ctx } from '../lib/ctx'
 import { ddmm, hhmm, ruDate } from '../lib/format'
 import { useT } from '../lib/i18n'
 import { usePalette } from '../lib/theme'
+import { completedForecast } from '../lib/calc'
 
 const START = '2026-01-31', END = '2026-02-27'
 const shift = (d: string, n: number) => { const x = new Date(`${d}T00:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10) }
@@ -36,6 +37,8 @@ export function ReplayPage({ ctx }: { ctx: Ctx }) {
   const log = useAsync(() => api.log(issue), [issue, tick])
   const runs = useAsync(api.issues, [tick])
   const rated = ratedOf(turbine)
+  const completed = !cur.loading && !cur.error && completedForecast(cur.data, issue)
+  const lowConfidence = completed && cur.data?.run.status === 'low_confidence'
 
   const data = useMemo(() => {
     const pm = new Map((prev.data?.rows ?? []).map((r) => [r.target_time, r.p_hat]))
@@ -46,7 +49,8 @@ export function ReplayPage({ ctx }: { ctx: Ctx }) {
   const prevEnd = overlap.length ? overlap[overlap.length - 1].i : null
   const ticks = data.filter((d) => new Date(d.time).getUTCHours() % 6 === 1).map((d) => d.i)
 
-  const tools = new Set((log.data ?? []).map((e) => e.tool))
+  const tools = new Set((log.loading || log.error ? [] : log.data ?? [])
+    .filter((e) => e.issue_date === issue).map((e) => e.tool))
   const steps = [[t('rp_s1'), tools.has('fetch_forecast')], [t('rp_s2'), tools.has('prepare_features')], [t('rp_s3'), tools.has('predict')], [t('rp_s4'), tools.has('report')]] as const
   const decisions = [...(log.data ?? [])].reverse().slice(0, 6).map((e) => {
     const r = (e.result ?? {}) as Record<string, number | string | boolean>
@@ -108,9 +112,12 @@ export function ReplayPage({ ctx }: { ctx: Ctx }) {
             <div key={label} className="flex items-center gap-2">
               {i > 0 && <span className={`h-[2px] w-10 ${ok ? 'bg-good' : 'bg-line'}`} />}
               <span key={`${issue}${i}`} className="pop flex items-center gap-2 text-[13px]" style={{ animationDelay: `${i * 150}ms` }}>
-                {ok ? <CheckCircle2 size={20} className="text-good" /> : <span className="size-5 rounded-full border-2 border-line" />}{label}</span>
+                {completed && ok ? <CheckCircle2 size={20} className="text-good" /> : <span className="size-5 rounded-full border-2 border-line" />}{label}</span>
             </div>))}
-          <span className="ml-auto flex items-center gap-1.5 rounded-md bg-good/10 px-3 py-1.5 text-[12px] text-good"><CheckCircle2 size={14} />{t('rp_done')}</span>
+          <span className={`ml-auto flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] ${completed && !lowConfidence ? 'bg-good/10 text-good' : 'bg-warn/10 text-warn'}`}>
+            {completed ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+            {t(cur.loading ? 'loading' : cur.error ? 'err' : lowConfidence ? 'rp_low' : completed ? 'rp_done' : 'rp_incomplete')}
+          </span>
         </div>
       </section>
 

@@ -1,6 +1,7 @@
 import { usePrefs, type Lang } from './prefs'
 
 const RU = {
+  fact_coverage: 'факт: {n}/{total} ч', checks_warn: 'есть замечания', rp_incomplete: 'Нет полного результата',
   app: 'AI Прогноз', section: 'Выработка ВЭС', ctx: '{n} турбины · {mw} МВт · {model}',
   f_object: 'Объект', f_horizon: 'Горизонт', f_issue: 'Выпуск', f_view: 'Вид', chart: 'График', table: 'Таблица',
   f_mode: 'Машина времени', mode_then: 'Доступно тогда', mode_eval: 'Факт для оценки', hidden_then: 'скрыто на момент выпуска',
@@ -48,6 +49,7 @@ const RU = {
 export type Dict = typeof RU
 
 const KK: Dict = {
+  fact_coverage: 'нақты: {n}/{total} сағ', checks_warn: 'ескертулер бар', rp_incomplete: 'Толық нәтиже жоқ',
   app: 'AI Болжам', section: 'ЖЭС өндірісі', ctx: '{n} турбина · {mw} МВт · {model}',
   f_object: 'Нысан', f_horizon: 'Көкжиек', f_issue: 'Шығарылым', f_view: 'Түрі', chart: 'График', table: 'Кесте',
   f_mode: 'Уақыт машинасы', mode_then: 'Сол кезде қолжетімді', mode_eval: 'Бағалау үшін нақты', hidden_then: 'жасырын: шығарылым кезінде белгісіз болған',

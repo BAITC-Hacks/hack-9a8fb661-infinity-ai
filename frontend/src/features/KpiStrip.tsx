@@ -10,14 +10,15 @@ export function KpiStrip({ k, showFact }: { k: Kpis; showFact: boolean }) {
   const { t } = useT()
   const dev = showFact ? devTone(k.devPct) : 'neutral'
   const hid = t('hidden_then')
+  const coverage = t('fact_coverage', { n: k.nFact, total: k.nHours })
   return (
     <div className="grid grid-cols-2 divide-line border-b border-line bg-sunk md:grid-cols-5 md:divide-x">
       <Cell label={t('k_forecast')} value={k.forecastMwh} digits={1} unit={t('mwh')} color="text-blue" formula={t('f_forecast')} />
-      <Cell label={t('k_fact')} value={showFact ? k.factMwh : null} digits={1} unit={t('mwh')} color="text-data" formula={t('f_fact')} caption={!showFact ? hid : ''} />
-      <Cell label={t('k_dev')} value={showFact ? k.devMwh : null} digits={1} unit={t('mwh')} color={TONE[dev]} sign formula={t('f_dev', { tol: TOL_PCT })}
+      <Cell label={t('k_fact')} value={showFact ? k.factMwh : null} digits={1} unit={t('mwh')} color="text-data" formula={`${t('f_fact')} · ${coverage}`} caption={!showFact ? hid : ''} />
+      <Cell label={t('k_dev')} value={showFact ? k.devMwh : null} digits={1} unit={t('mwh')} color={TONE[dev]} sign formula={`${t('f_dev', { tol: TOL_PCT })} · ${coverage}`}
         caption={showFact && k.devPct != null ? `${k.devPct > 0 ? '+' : ''}${k.devPct.toFixed(1)}%` : ''} />
       <Cell label={t('k_peak')} value={k.peakMw} digits={2} unit={t('mw')} color="text-blue" formula={t('f_peak')} caption={k.peakTime ? t('c_peak', { t: hhmm(k.peakTime) }) : ''} big />
-      <Cell label={t('k_acc')} value={showFact ? k.accuracy : null} digits={1} unit="%" color={!showFact || k.accuracy == null ? 'text-text' : k.accuracy >= 85 ? 'text-good' : k.accuracy >= 70 ? 'text-warn' : 'text-bad'} formula={t('f_acc')} caption={!showFact ? hid : ''} />
+      <Cell label={t('k_acc')} value={showFact ? k.accuracy : null} digits={1} unit="%" color={!showFact || k.accuracy == null ? 'text-text' : k.accuracy >= 85 ? 'text-good' : k.accuracy >= 70 ? 'text-warn' : 'text-bad'} formula={`${t('f_acc')} · ${coverage}`} caption={!showFact ? hid : ''} />
     </div>
   )
 }

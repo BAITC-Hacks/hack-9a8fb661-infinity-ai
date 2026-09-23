@@ -32,12 +32,22 @@ def to_hourly(df: pd.DataFrame, utc_offset: int = config.SOURCE_UTC_OFFSET) -> p
     """Местное время -> UTC; час H = среднее по окну [H-30мин, H+30мин).
 
     Центрированное окно сопоставимо с мгновенными значениями метеомодели на час H.
+    Час допустим только при шести уникальных валидных точках на 10-минутной сетке.
     """
     x = df.copy()
+    x["time"] = pd.to_datetime(x["time"], errors="coerce")
+    cols = ["wind_speed", "power", "temperature"]
+    x[cols] = x[cols].apply(pd.to_numeric, errors="coerce")
+    x = x.dropna(subset=["time"]).drop_duplicates("time", keep=False)
+    x = x[x["time"] == x["time"].dt.floor("10min")]
+    valid = (x[cols].notna().all(axis=1)
+             & ~x[cols].isin([float("inf"), float("-inf")]).any(axis=1)
+             & x["power"].between(0, 1) & x["wind_speed"].ge(0))
+    x = x[valid]
     x["time"] = x["time"] - pd.Timedelta(hours=utc_offset) + pd.Timedelta(minutes=30)
-    h = x.set_index("time")[["wind_speed", "power", "temperature"]].resample("h").mean()
-    h = h.dropna(subset=["power"])
-    h["power"] = h["power"].clip(0, 1)
+    grouped = x.set_index("time")[cols].resample("h")
+    h = grouped.mean()
+    h = h[grouped.size() == 6]
     h["is_downtime"] = (h["power"] < 0.01) & (h["wind_speed"] > 5)
     h.index = h.index.tz_localize("UTC")
     return h.reset_index()
@@ -107,9 +117,17 @@ def load_history() -> pd.DataFrame:
 
 
 def station_series(history: pd.DataFrame) -> pd.DataFrame:
-    """Станция = среднее нормализованной мощности по турбинам (шкала 0..1)."""
-    g = history.groupby("time")
+    """Сумма МВт / номинал станции; только часы с полным фактом всех турбин."""
+    rated = {t.id: t.rated_power_mw for t in config.TURBINES}
+    x = history[history["turbine"].isin(rated)].copy()
+    x = x.drop_duplicates(["time", "turbine"], keep=False)
+    x = x[x["power"].between(0, 1)]
+    complete = x.groupby("time")["turbine"].transform("nunique") == len(rated)
+    x = x[complete]
+    x["power_mw"] = x["power"] * x["turbine"].map(rated)
+    g = x.groupby("time")
     out = g[["wind_speed", "power", "temperature"]].mean()
+    out["power"] = g["power_mw"].sum() / sum(rated.values())
     out["is_downtime"] = g["is_downtime"].any()
     out["turbine"] = "STATION"
     return out.reset_index()[HISTORY_COLUMNS]

@@ -2,6 +2,7 @@ import { CheckCircle2, CloudSun, ShieldCheck, XCircle } from 'lucide-react'
 import type { ForecastRow, WeatherPoint } from '../api/types'
 import { ruDate } from '../lib/format'
 import { useT } from '../lib/i18n'
+import { forecastChecks } from '../lib/calc'
 
 /** Карточки «Погодный выпуск» и «Последний расчёт» (по второму макету), на реальных данных. */
 export function WeatherRelease({ weather, issueDate }: { weather: WeatherPoint[]; issueDate: string }) {
@@ -19,10 +20,9 @@ export function WeatherRelease({ weather, issueDate }: { weather: WeatherPoint[]
   )
 }
 
-export function LastCalc({ rows, prevRows, rated }: { rows: ForecastRow[]; prevRows: { target_time: string; p_hat: number }[]; rated: number }) {
+export function LastCalc({ rows, prevRows, rated, horizon, issueDate }: { rows: ForecastRow[]; prevRows: { target_time: string; p_hat: number }[]; rated: number; horizon: number; issueDate: string }) {
   const { t } = useT()
-  const full = rows.length >= 24
-  const inRange = rows.every((r) => r.p_hat >= 0 && r.p_hat <= 1)
+  const { full, inRange } = forecastChecks(rows, horizon, issueDate)
   const energy = rows.reduce((a, r) => a + r.p_hat, 0) * rated
   const pm = new Map(prevRows.map((r) => [r.target_time, r.p_hat]))
   const common = rows.filter((r) => pm.has(r.target_time))
@@ -33,7 +33,7 @@ export function LastCalc({ rows, prevRows, rated }: { rows: ForecastRow[]; prevR
   return (
     <section className="panel rise" style={{ animationDelay: '80ms' }}>
       <h2 className="mb-2 text-[15px] font-semibold">{t('lc_title')}</h2>
-      <div className={`mb-1 flex items-center gap-2 text-[14px] font-medium ${ok ? 'text-good' : 'text-warn'}`}><ShieldCheck size={16} />{t('lc_ok')}</div>
+      <div className={`mb-1 flex items-center gap-2 text-[14px] font-medium ${ok ? 'text-good' : 'text-warn'}`}><ShieldCheck size={16} />{t(ok ? 'lc_ok' : 'checks_warn')}</div>
       <Check on={full} label={t('lc_h')} /><Check on={inRange} label={t('lc_range')} /><Check on={Number.isFinite(energy)} label={t('lc_energy')} />
       {diff != null && <div className="mt-2 flex justify-between border-t border-line pt-2 text-[13px]"><span className="text-mute">{t('lc_diff')}</span>
         <span className={`num font-semibold ${diff >= 0 ? 'text-good' : 'text-warn'}`}>{diff >= 0 ? '+' : ''}{diff.toFixed(1)}%</span></div>}
@@ -75,17 +75,23 @@ export function HourlyTable({ rows, weather, rated, showFact }: { rows: Forecast
 }
 
 /** Одна строка статуса: покрытие погоды, проверки, изменение энергии к прошлому выпуску. */
-export function StatusLine({ weather, rows, prevRows }: { weather: WeatherPoint[]; rows: ForecastRow[]; prevRows: { target_time: string; p_hat: number }[] }) {
-  const n = weather.filter((w) => w.wind_speed_100m != null).length
-  const ok = rows.length >= 24 && rows.every((r) => r.p_hat >= 0 && r.p_hat <= 1)
+export function StatusLine({ weather, rows, prevRows, horizon, issueDate, loading, error }: { weather: WeatherPoint[]; rows: ForecastRow[]; prevRows: { target_time: string; p_hat: number }[]; horizon: number; issueDate: string; loading: boolean; error: string | null }) {
+  const { t } = useT()
+  const issue = Date.parse(`${issueDate}T00:00:00Z`)
+  const n = Array.from({ length: horizon }, (_, i) => issue + (i + 1) * 3600e3)
+    .filter((time) => {
+      const points = weather.filter((w) => Date.parse(w.time) === time)
+      return points.length === 1 && Number.isFinite(points[0].wind_speed_100m)
+    }).length
+  const ok = !loading && !error && forecastChecks(rows, horizon, issueDate).ok && n === horizon
   const pm = new Map(prevRows.map((r) => [r.target_time, r.p_hat]))
   const common = rows.filter((r) => pm.has(r.target_time))
   const ePrev = common.reduce((a, r) => a + (pm.get(r.target_time) ?? 0), 0)
   const diff = ePrev > 0 ? (common.reduce((a, r) => a + r.p_hat, 0) / ePrev - 1) * 100 : null
   return (
     <div className="panel flex flex-wrap items-center gap-x-4 gap-y-1 !py-2.5 text-[12px]">
-      <span className={`flex items-center gap-1.5 ${ok ? 'text-good' : 'text-warn'}`}><ShieldCheck size={14} />{ok ? 'проверки пройдены' : 'есть замечания'}</span>
-      <span className="flex items-center gap-1.5 text-mute"><CloudSun size={14} />погода {n}/{weather.length || 48} ч</span>
+      <span className={`flex items-center gap-1.5 ${ok ? 'text-good' : 'text-warn'}`}><ShieldCheck size={14} />{t(loading ? 'loading' : error ? 'err' : ok ? 'lc_ok' : 'checks_warn')}</span>
+      <span className="flex items-center gap-1.5 text-mute"><CloudSun size={14} />{t('wr_cov_v', { n, m: horizon })}</span>
       {diff != null && <span className="text-mute">к прошлому выпуску <b className={`num ${diff >= 0 ? 'text-good' : 'text-warn'}`}>{diff >= 0 ? '+' : ''}{diff.toFixed(0)}%</b></span>}
     </div>
   )

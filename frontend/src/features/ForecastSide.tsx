@@ -73,3 +73,20 @@ export function HourlyTable({ rows, weather, rated, showFact }: { rows: Forecast
     </section>
   )
 }
+
+/** Одна строка статуса: покрытие погоды, проверки, изменение энергии к прошлому выпуску. */
+export function StatusLine({ weather, rows, prevRows }: { weather: WeatherPoint[]; rows: ForecastRow[]; prevRows: { target_time: string; p_hat: number }[] }) {
+  const n = weather.filter((w) => w.wind_speed_100m != null).length
+  const ok = rows.length >= 24 && rows.every((r) => r.p_hat >= 0 && r.p_hat <= 1)
+  const pm = new Map(prevRows.map((r) => [r.target_time, r.p_hat]))
+  const common = rows.filter((r) => pm.has(r.target_time))
+  const ePrev = common.reduce((a, r) => a + (pm.get(r.target_time) ?? 0), 0)
+  const diff = ePrev > 0 ? (common.reduce((a, r) => a + r.p_hat, 0) / ePrev - 1) * 100 : null
+  return (
+    <div className="panel flex flex-wrap items-center gap-x-4 gap-y-1 !py-2.5 text-[12px]">
+      <span className={`flex items-center gap-1.5 ${ok ? 'text-good' : 'text-warn'}`}><ShieldCheck size={14} />{ok ? 'проверки пройдены' : 'есть замечания'}</span>
+      <span className="flex items-center gap-1.5 text-mute"><CloudSun size={14} />погода {n}/{weather.length || 48} ч</span>
+      {diff != null && <span className="text-mute">к прошлому выпуску <b className={`num ${diff >= 0 ? 'text-good' : 'text-warn'}`}>{diff >= 0 ? '+' : ''}{diff.toFixed(0)}%</b></span>}
+    </div>
+  )
+}

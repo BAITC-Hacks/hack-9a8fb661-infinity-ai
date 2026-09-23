@@ -20,11 +20,11 @@ export function AlertsPanel({ alerts, summary, passport, llm, loading }: { alert
         <Bot size={16} className="text-blue" /><span className="text-[14px] font-semibold">{t('alerts')}</span>
         <span className="mono ml-auto flex items-center gap-1.5 text-mute"><i className="dot size-1.5 rounded-full bg-good" />{t('live')} · {llm.split(' ')[0].replace('rules', 'правила')}</span>
       </div>
-      <div className="scroll-thin max-h-[720px] space-y-2 overflow-y-auto p-2">
+      <div className="scroll-thin max-h-[520px] space-y-2 overflow-y-auto p-2">
         {text && (
           <div className="pop rounded-md border border-line bg-sunk px-3 py-2.5">
             <div className="lbl mb-1">{t('agent_summary')}</div>
-            <p className="text-[13px] leading-relaxed">{text}</p>
+            <details className="group"><summary className="cursor-pointer list-none text-[13px] leading-relaxed"><span className="line-clamp-2 group-open:line-clamp-none">{text}</span></summary></details>
           </div>)}
         {loading && !alerts.length && <div className="shimmer h-16 rounded-md" />}
         {!loading && !alerts.length && <p className="px-2 py-4 text-[13px] text-mute">{t('no_alerts')}</p>}

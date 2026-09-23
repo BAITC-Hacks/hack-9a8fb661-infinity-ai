@@ -2,6 +2,7 @@ import { HardHat, MessageSquare, Plus, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api/client'
 import { ChatView } from '../features/ChatView'
+import { AnalogsPanel } from '../features/AnalogsPanel'
 import { PipelineRail } from '../features/PipelineRail'
 import { useAgentStream, type Msg, type Step } from '../hooks/useAgentStream'
 import { useAsync } from '../hooks/useAsync'
@@ -21,6 +22,7 @@ export function AgentPage({ ctx }: { ctx: Ctx }) {
   const [poll, setPoll] = useState(0)
   useEffect(() => { const id = setInterval(() => setPoll((x) => x + 1), 15000); return () => clearInterval(id) }, [])
   const log = useAsync(() => api.log(issueDate), [issueDate, tick, poll])
+  const analogs = useAsync(() => api.analogs(issueDate, ctx.turbine), [issueDate, ctx.turbine])
   const [live, setLive] = useState<{ steps: Step[]; busy: boolean; thinking: boolean }>({ steps: [], busy: false, thinking: false })
   const [convs, setConvs] = useState<Conv[]>(() => { const c = load(); return c.length ? c : [fresh()] })
   const [active, setActive] = useState(convs[0].id)
@@ -53,7 +55,7 @@ export function AgentPage({ ctx }: { ctx: Ctx }) {
         <ChatPane key={conv.id} conv={conv} ctx={ctx} onSave={save} onLive={setLive} />
       </section>
 
-      <div className="hidden min-h-0 overflow-y-auto xl:block"><PipelineRail log={log.data ?? []} issueDate={issueDate} live={live.steps} busy={live.busy} thinking={live.thinking} /></div>
+      <div className="hidden min-h-0 space-y-3 overflow-y-auto xl:block"><PipelineRail log={log.data ?? []} issueDate={issueDate} live={live.steps} busy={live.busy} thinking={live.thinking} /><AnalogsPanel a={analogs.data} loading={analogs.loading} /></div>
     </main>
   )
 }

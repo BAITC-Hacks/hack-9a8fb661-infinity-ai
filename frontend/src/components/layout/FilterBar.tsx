@@ -13,7 +13,6 @@ interface Props {
   issueDate: string; onIssue: (d: string) => void
   view: View; onView: (v: View) => void
   mode: Mode; onMode: (m: Mode) => void
-  nPrev: number; onNPrev: (n: number) => void
 }
 
 const shift = (d: string, n: number) => {
@@ -45,11 +44,6 @@ export function FilterBar(p: Props) {
             className="num h-full border-x border-line bg-bg px-2 text-[13px] text-text outline-none" />
           <button onClick={() => setIssue(shift(p.issueDate, 1))} disabled={p.issueDate >= ISSUE_MAX} aria-label="+1"><ChevronRight size={14} /></button>
         </div>
-      </Field>
-      <Field label={t('f_prev')}>
-        <select value={p.nPrev} onChange={(e) => p.onNPrev(Number(e.target.value))} className="field h-[30px] py-0 text-[13px]">
-          {[0, 1, 2, 3, 5, 7].map((n) => <option key={n} value={n}>{t('n_prev', { n })}</option>)}
-        </select>
       </Field>
       <Field label={t('f_mode')}>
         <div className="seg">

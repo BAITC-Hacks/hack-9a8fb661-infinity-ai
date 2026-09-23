@@ -83,6 +83,8 @@ export function ChatView({ msgs, busy, ask, mode, setMode, reset, compact, sessi
               : <div className="flex items-center gap-2 px-1 py-2 text-[12px] text-mute">
                   <span className="flex gap-1"><i className="dot size-1.5 rounded-full bg-mute" /><i className="dot size-1.5 rounded-full bg-mute" /><i className="dot size-1.5 rounded-full bg-mute" /></span>
                   {m.mode === 'deep' ? t('m_deep_d') : m.mode === 'medium' ? t('m_medium_d') : ''}</div>}
+            {m.error && m.retry && !busy && (
+              <button onClick={() => ask(m.retry!.question, m.retry!.files)} className="ml-1 flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-[11px] text-mute hover:border-blue hover:text-text"><RotateCcw size={11} />{t('retry')}</button>)}
             {m.done && m.text && !m.error && (
               <div className="flex gap-2 pl-1">
                 {(['docx', 'xlsx'] as const).map((fmt) => (

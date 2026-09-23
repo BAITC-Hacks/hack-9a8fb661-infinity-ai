@@ -7,7 +7,7 @@ import type { Dict } from '../lib/i18n'
 export type AgentMode = 'fast' | 'medium' | 'deep'
 export interface Step { label: string; done: boolean }
 export interface Attached { id: string; name: string; kind: string }
-export interface Msg { id: number; role: 'user' | 'agent'; text: string; steps: Step[]; error?: boolean; thinking?: { text: string; seconds: number }; mode?: AgentMode; files?: Attached[]; question?: string; done?: boolean }
+export interface Msg { id: number; role: 'user' | 'agent'; text: string; steps: Step[]; error?: boolean; thinking?: { text: string; seconds: number }; mode?: AgentMode; files?: Attached[]; question?: string; done?: boolean; retry?: { question: string; files: Attached[] } }
 
 let seq = 1
 const newSession = () => Math.random().toString(36).slice(2, 12)
@@ -48,7 +48,10 @@ export function useAgentStream(d: Dict, lang: string, onDone?: () => void, conte
     es.current?.close()
     setFull(''); setShown(0); setBusy(true)
     setMsgs((xs) => [...xs, { id: seq++, role: 'user', text: question, steps: [], files }, { id: seq++, role: 'agent', text: '', steps: [], mode, question }])
-    const src = new EventSource(api.agentStreamUrl(question, { lang, mode, session: session.current, ...(ctxRef.current ?? {}), files: files.map((f) => f.id).join(',') }))
+    const url = api.agentStreamUrl(question, { lang, mode, session: session.current, ...(ctxRef.current ?? {}), files: files.map((f) => f.id).join(',') })
+    let gotAnswer = false, retries = 0
+    const open = () => {
+    const src = new EventSource(url)
     es.current = src
     src.onmessage = (e) => {
       const ev = JSON.parse(e.data) as AgentEvent
@@ -57,14 +60,23 @@ export function useAgentStream(d: Dict, lang: string, onDone?: () => void, conte
       else if (ev.type === 'tool_result')
         patchLast((m) => ({ ...m, steps: m.steps.map((s, i) => (i === m.steps.length - 1 ? { ...s, done: true } : s)) }))
       else if (ev.type === 'thinking') patchLast((m) => ({ ...m, thinking: { text: ev.text, seconds: ev.seconds } }))
-      else if (ev.type === 'answer') setFull(ev.text.replace(/^\[mock\]\s*/, '').replace(/\s*\[mock\]\s*/g, ' '))
+      else if (ev.type === 'answer') { gotAnswer = true; setFull(ev.text.replace(/^\[mock\]\s*/, '').replace(/\s*\[mock\]\s*/g, ' ')) }
       else if (ev.type === 'error') patchLast((m) => ({ ...m, text: `${d.a_fail}: ${ev.text}`, error: true }))
       else if (ev.type === 'done') { src.close(); setBusy(false); patchLast((m) => ({ ...m, done: true })); onDone?.() }
     }
     src.onerror = () => {
-      src.close(); setBusy(false)
-      patchLast((m) => (m.text ? m : { ...m, text: d.a_lost, error: true }))
+      src.close()
+      if (!gotAnswer && retries < 2) {           // короткий сбой сети или перезапуск сервера — тихий повтор
+        retries += 1
+        patchLast((m) => ({ ...m, steps: [] }))
+        setTimeout(open, 2500)
+        return
+      }
+      setBusy(false)
+      patchLast((m) => (m.text ? m : { ...m, text: d.a_lost, error: true, retry: { question, files } }))
     }
+    }
+    open()
   }, [onDone, d, lang, mode])
 
   const reset = useCallback(() => { es.current?.close(); setMsgs([]); setBusy(false); session.current = newSession() }, [])

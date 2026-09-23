@@ -21,12 +21,19 @@ class Turbine:
     lat: float
     lon: float
     raw_file: str
+    rated_power_mw: float = 2.5
+    tower_height_m: float = 80
+    rotor_diameter_m: float = 109
+    model: str = "Goldwind GW109/2500"
 
 
+# Паспорт — справочник wind_objects дата-инженера (источник: samruk-green.kz, ВЭС «Нурлы»)
+OBJECTS_SOURCE_URL = "https://samruk-green.kz/index.php/ru/projects/1047-20210219-133650"
 TURBINES = (
-    Turbine("T1", 1, "Турбина 1", 43.645138889, 78.535611111, "turbine1.csv"),
-    Turbine("T2", 2, "Турбина 2", 43.643194444, 78.538833333, "turbine2.csv"),
+    Turbine("T1", 1, "Нурлы — турбина 1", 43.645138889, 78.535611111, "turbine1.csv"),
+    Turbine("T2", 2, "Нурлы — турбина 2", 43.643194444, 78.538833333, "turbine2.csv"),
 )
+ACTUALS_FILE = "wind_actuals.csv"   # выгрузка wind_actuals дата-инженера (все объекты)
 # Обе турбины в одной ячейке сетки Open-Meteo — погодный ряд один на станцию.
 SITE_LAT = round(sum(t.lat for t in TURBINES) / len(TURBINES), 5)
 SITE_LON = round(sum(t.lon for t in TURBINES) / len(TURBINES), 5)

@@ -1,5 +1,5 @@
 import type {
-  AgentLogEntry, ForecastResponse, Health, MetricsResponse, PowerCurve, Run, TimelinePoint, TurbineId,
+  AgentLogEntry, ForecastResponse, WindObject, Health, MetricsResponse, PowerCurve, Run, TimelinePoint, TurbineId,
 } from './types'
 
 export class ApiError extends Error {
@@ -29,6 +29,7 @@ const q = (params: Record<string, string | number | boolean | undefined>) =>
 
 export const api = {
   health: () => request<Health>('/api/health'),
+  objects: () => request<WindObject[]>('/api/objects'),
   issues: () => request<Run[]>('/api/issues'),
   forecast: (issue_date: string, turbine: TurbineId) =>
     request<ForecastResponse>(`/api/forecast?${q({ issue_date, turbine })}`),

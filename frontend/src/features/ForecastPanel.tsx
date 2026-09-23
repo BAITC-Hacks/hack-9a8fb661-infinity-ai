@@ -9,6 +9,7 @@ export const ISSUE_MIN = '2026-01-01'
 export const ISSUE_MAX = '2026-02-27'
 
 interface Props {
+  rated: number
   animKey: string
   rows: ForecastRow[]
   issueDate: string
@@ -19,7 +20,7 @@ interface Props {
   error: string | null
 }
 
-export function ForecastPanel({ animKey, rows, issueDate, onIssue, horizon, onHorizon, band, error }: Props) {
+export function ForecastPanel({ rated, animKey, rows, issueDate, onIssue, horizon, onHorizon, band, error }: Props) {
   const data = rows.map((r, i) => ({
     i, t: r.target_time, p: r.p_hat, actual: r.actual,
     range: [Math.max(0, r.p_hat - band(r.lead_hours)), Math.min(1, r.p_hat + band(r.lead_hours))],
@@ -44,7 +45,7 @@ export function ForecastPanel({ animKey, rows, issueDate, onIssue, horizon, onHo
                   tickLine={false} axisLine={{ stroke: LINE }} />
                 <YAxis domain={[0, 1]} ticks={[0, 0.5, 1]} tickFormatter={(v) => pct(v)} tick={{ fill: MUTE, fontSize: 13 }}
                   tickLine={false} axisLine={false} width={44} />
-                <Tooltip content={<Tip data={data} />} cursor={{ stroke: LINE }} isAnimationActive={false} />
+                <Tooltip content={<Tip data={data} rated={rated} />} cursor={{ stroke: LINE }} isAnimationActive={false} />
                 <Area dataKey="range" stroke="none" fill={BLUE} fillOpacity={0.18} isAnimationActive animationDuration={900} animationEasing="ease-out" />
                 <Line dataKey="actual" stroke={WHITE} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive animationDuration={900} animationEasing="ease-out" />
                 <Line dataKey="p" stroke={BLUE} strokeWidth={2} strokeDasharray="6 4" dot={false} isAnimationActive animationDuration={900} animationEasing="ease-out" />
@@ -75,15 +76,15 @@ function Key({ color, label, dashed, fill }: { color: string; label: string; das
   )
 }
 
-interface TipProps { active?: boolean; label?: number; data: { t: string; p: number; actual: number | null }[] }
-function Tip({ active, label, data }: TipProps) {
+interface TipProps { active?: boolean; label?: number; rated: number; data: { t: string; p: number; actual: number | null }[] }
+function Tip({ active, label, data, rated }: TipProps) {
   if (!active || label == null) return null
   const d = data[label]
   return (
     <div className="num rounded-lg border border-line bg-bg px-3 py-2 text-[13px]">
       <div className="text-mute">{ddmm(d.t)} {hhmm(d.t)}</div>
-      <div className="text-blue">Прогноз {pct(d.p, 1)}</div>
-      <div>Факт {d.actual != null ? pct(d.actual, 1) : '—'}</div>
+      <div className="text-blue">Прогноз {(d.p * rated).toFixed(2)} МВт · {pct(d.p)}</div>
+      <div>Факт {d.actual != null ? `${(d.actual * rated).toFixed(2)} МВт · ${pct(d.actual)}` : '—'}</div>
     </div>
   )
 }

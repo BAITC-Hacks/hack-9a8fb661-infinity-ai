@@ -54,7 +54,7 @@ backend/app/
   services/   agent (цикл), chat (function calling), llm, export
   cli.py      fetch-weather | backtest | forecast | ensure | export
 frontend/     React + TS (Vite), nginx.conf для docker
-data/raw/     исходные CSV организаторов (10 мин)
+data/raw/     исходные CSV организаторов (10 мин) + wind_actuals.csv (выгрузка дата-инженера)
 data/cache/   ответы Open-Meteo — проверка работает без сети
 outputs/      forecasts.csv, forecasts_test_period.csv, metrics.json
 ```
@@ -127,7 +127,7 @@ MAE — в долях номинальной мощности. Факт по ф�
 31.01.2026 23:50), поэтому февральские выпуски — прогноз без оценки.
 
 ## Использованные внешние материалы
-- Данные: исторические CSV организаторов HackAlem AI (две турбины, 10-минутный шаг).
+- Данные: исторические CSV организаторов HackAlem AI (две турбины, 10-минутный шаг); выгрузка `wind_actuals` и справочник `wind_objects` (паспорт: Goldwind GW109/2500, 2,5 МВт, башня 80 м — [Samruk-Green, ВЭС «Нурлы»](https://samruk-green.kz/index.php/ru/projects/1047-20210219-133650)) подготовлены дата-инженером команды.
 - Погода: [Open-Meteo](https://open-meteo.com/) Previous Model Runs API (CC BY 4.0), без ключа.
 - LLM (опционально, на NVIDIA GPU через Brev): [Qwen/Qwen3.8-27B-FP8](https://huggingface.co/Qwen/Qwen3.8-27B-FP8) (Apache 2.0), сервер vLLM — см. `gpu/README.md`.
 - Библиотеки: см. `backend/requirements.txt`, `frontend/package.json`.

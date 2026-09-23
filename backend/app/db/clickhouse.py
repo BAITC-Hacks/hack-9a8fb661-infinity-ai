@@ -14,14 +14,49 @@ WIND_OBJECTS_DDL = """CREATE TABLE IF NOT EXISTS wind_objects
     name String,
     latitude Float64,
     longitude Float64,
-    updated_at DateTime64(3, 'Etc/GMT-5')
-        DEFAULT now64(3, 'Etc/GMT-5')
+    rated_power_mw Nullable(Float64),
+    tower_height_m Nullable(Float64),
+    rotor_diameter_m Nullable(Float64),
+    turbine_model Nullable(String),
+    metadata_source_url String,
+    updated_at DateTime64(3, 'Etc/GMT-5') DEFAULT now64(3, 'Etc/GMT-5')
 )
 ENGINE = ReplacingMergeTree(updated_at)
 ORDER BY object_id"""
 
+# миграция со старой версии справочника (без паспорта турбин)
+WIND_OBJECTS_MIGRATE = [
+    "ALTER TABLE wind_objects ADD COLUMN IF NOT EXISTS rated_power_mw Nullable(Float64)",
+    "ALTER TABLE wind_objects ADD COLUMN IF NOT EXISTS tower_height_m Nullable(Float64)",
+    "ALTER TABLE wind_objects ADD COLUMN IF NOT EXISTS rotor_diameter_m Nullable(Float64)",
+    "ALTER TABLE wind_objects ADD COLUMN IF NOT EXISTS turbine_model Nullable(String)",
+    "ALTER TABLE wind_objects ADD COLUMN IF NOT EXISTS metadata_source_url String",
+]
+
+WIND_ACTUALS_DDL = """CREATE TABLE IF NOT EXISTS wind_actuals
+(
+    object_id UInt32,
+    timestamp DateTime64(3, 'Etc/GMT-5'),
+
+    avg_wind Nullable(Float64) COMMENT 'Средняя скорость ветра, м/с',
+    avg_tmp Nullable(Float64) COMMENT 'Средняя температура, °C',
+    power_normalized Nullable(Float64)
+        COMMENT 'Нормализованная активная мощность из CSV',
+
+    loaded_at DateTime64(3, 'Etc/GMT-5')
+        DEFAULT now64(3, 'Etc/GMT-5')
+)
+ENGINE = ReplacingMergeTree(loaded_at)
+PARTITION BY toYYYYMM(timestamp)
+ORDER BY (object_id, timestamp)"""
+
+OBJECT_COLS = ["object_id", "name", "latitude", "longitude", "rated_power_mw", "tower_height_m",
+               "rotor_diameter_m", "turbine_model", "metadata_source_url"]
+
 CH_SCHEMA = [
     WIND_OBJECTS_DDL,
+    *WIND_OBJECTS_MIGRATE,
+    WIND_ACTUALS_DDL,
     """CREATE TABLE IF NOT EXISTS runs (id UInt64, created_at DateTime('UTC'), issue_date Date,
        mode LowCardinality(String), status LowCardinality(String), model_trained_until String,
        weather_signature Float64, summary String) ENGINE = MergeTree ORDER BY (issue_date, id)""",
@@ -85,13 +120,34 @@ class ClickHouseStore(Store):
     def init(self):
         for ddl in CH_SCHEMA:
             self.cli.command(ddl)
-        if not self.cli.query("SELECT count() FROM wind_objects").result_rows[0][0]:
-            self.cli.insert("wind_objects", [[o.object_id, o.name, o.lat, o.lon]
-                                             for o in config.TURBINES],
-                            column_names=["object_id", "name", "latitude", "longitude"])
+        n_pass = self.cli.query("SELECT countIf(rated_power_mw IS NOT NULL) FROM wind_objects"
+                                " FINAL").result_rows[0][0]
+        if n_pass < len(config.TURBINES):
+            self.cli.insert("wind_objects", [[o.object_id, o.name, o.lat, o.lon, o.rated_power_mw,
+                                              o.tower_height_m, o.rotor_diameter_m, o.model,
+                                              config.OBJECTS_SOURCE_URL] for o in config.TURBINES],
+                            column_names=OBJECT_COLS)
+        self._load_actuals()
+
+    def _load_actuals(self):
+        """Первичная загрузка wind_actuals из выгрузки дата-инженера (если таблица пуста)."""
+        if self.cli.query("SELECT count() FROM wind_actuals").result_rows[0][0]:
+            return
+        path = config.RAW_DIR / config.ACTUALS_FILE
+        if not path.exists():
+            return
+        df = pd.read_csv(path)
+        df["timestamp"] = pd.to_datetime(df["timestamp"]).dt.tz_localize("Etc/GMT-5")
+        cols = ["object_id", "timestamp", "avg_wind", "avg_tmp", "power_normalized"]
+        self.cli.insert_df("wind_actuals", df[cols].astype(object).where(df[cols].notna(), None),
+                           column_names=cols)
+
+    def actuals(self) -> pd.DataFrame:
+        return self.cli.query_df("SELECT object_id, timestamp, avg_wind, avg_tmp, power_normalized"
+                                 " FROM wind_actuals FINAL ORDER BY object_id, timestamp")
 
     def objects(self):
-        return self._rows("SELECT object_id, name, latitude, longitude FROM wind_objects FINAL"
+        return self._rows(f"SELECT {', '.join(OBJECT_COLS)} FROM wind_objects FINAL"
                           " ORDER BY object_id")
 
     def create_run(self, issue_date, mode, status, trained_until, signature, summary):

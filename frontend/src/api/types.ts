@@ -82,3 +82,15 @@ export interface DailyError {
 
 export interface CurvePoint { v: number; p: number }
 export interface PowerCurve { turbine: string; n_hours: number; curve: CurvePoint[]; points: CurvePoint[] }
+
+export interface WindObject {
+  object_id: number
+  name: string
+  latitude: number
+  longitude: number
+  rated_power_mw: number | null
+  tower_height_m: number | null
+  rotor_diameter_m: number | null
+  turbine_model: string | null
+  metadata_source_url: string
+}

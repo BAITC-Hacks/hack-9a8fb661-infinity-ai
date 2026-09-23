@@ -11,7 +11,7 @@ import { TestPeriodPanel } from './features/TestPeriodPanel'
 import { useAsync } from './hooks/useAsync'
 import { pct } from './lib/format'
 
-const NAMES: Record<TurbineId, string> = { STATION: 'Станция', T1: 'Турбина 1', T2: 'Турбина 2' }
+const NAMES: Record<TurbineId, string> = { STATION: 'ВЭС «Нурлы»', T1: 'Турбина 1', T2: 'Турбина 2' }
 
 export default function App() {
   const [turbine, setTurbine] = useState<TurbineId>('STATION')
@@ -23,6 +23,7 @@ export default function App() {
   const refresh = useCallback(() => setTick((t) => t + 1), [])
 
   const metrics = useAsync(api.metrics, [tick])
+  const objects = useAsync(api.objects, [])
   const forecast = useAsync(() => api.forecast(issueDate, turbine), [issueDate, turbine, tick])
   const timeline = useAsync(() => api.timeline(turbine), [turbine, tick])
   const curve = useAsync(() => api.powerCurve(turbine), [turbine])
@@ -35,6 +36,11 @@ export default function App() {
     return metrics.data?.by_turbine_and_horizon.find((m) => m.turbine === turbine && m.bucket === b)?.mae ?? 0.15
   }, [metrics.data, turbine])
 
+  const objs = objects.data ?? []
+  const ratedOf = (id: number) => objs.find((o) => o.object_id === id)?.rated_power_mw ?? 2.5
+  const rated = turbine === 'STATION' ? (objs.length ? objs.reduce((a, o) => a + (o.rated_power_mw ?? 2.5), 0) : 5)
+    : ratedOf(turbine === 'T1' ? 1 : 2)
+  const model = objs[0]?.turbine_model
   const k = kpis(rows)
   const run = async () => {
     setRunning(true)
@@ -50,7 +56,12 @@ export default function App() {
 
       <main className="mx-auto max-w-[1400px] space-y-4 p-5">
         <header className="flex flex-wrap items-baseline justify-between gap-2">
-          <h1 key={turbine + horizon} className="rise text-[22px] font-semibold">{NAMES[turbine]} · выработка на {horizon} ч</h1>
+          <div>
+            <h1 key={turbine + horizon} className="rise text-[22px] font-semibold">{NAMES[turbine]} · выработка на {horizon} ч</h1>
+            <p className="text-[13px] text-mute">
+              {turbine === 'STATION' ? `${objs.length || 2} × ` : ''}{model ?? 'Goldwind GW109/2500'} · {rated} МВт
+            </p>
+          </div>
           {status && (
             <span className={`text-sm ${status === 'ok' ? 'text-mute' : 'text-warn'}`}>
               {status === 'ok' ? 'данные полные' : 'пониженная достоверность'}
@@ -59,14 +70,14 @@ export default function App() {
         </header>
 
         <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
-          <Tile delay={0} label="Энергия" value={k.energy} format={(v) => v.toFixed(1)} unit="ч·Pном" />
-          <Tile delay={60} label="Средняя мощность" value={k.mean} format={(v) => pct(v)} />
-          <Tile delay={120} label="Пик" value={k.peak} format={(v) => pct(v)} />
+          <Tile delay={0} label="Энергия за горизонт" value={k.energy == null ? null : k.energy * rated} format={(v) => v.toFixed(1)} unit="МВт·ч" />
+          <Tile delay={60} label="Средняя мощность" value={k.mean == null ? null : k.mean * rated} format={(v) => v.toFixed(2)} unit={`МВт · ${pct(k.mean)}`} />
+          <Tile delay={120} label="Пик" value={k.peak == null ? null : k.peak * rated} format={(v) => v.toFixed(2)} unit={`МВт · ${pct(k.peak)}`} />
           <Tile delay={180} label="MAE выпуска" value={k.mae} format={(v) => v.toFixed(3)} />
           <Tile delay={240} label="Выигрыш у базы" value={k.skill} format={(v) => `${v > 0 ? '+' : ''}${pct(v)}`} tone={k.tone} />
         </div>
 
-        <ForecastPanel animKey={`${issueDate}-${turbine}-${horizon}`} rows={rows} issueDate={issueDate}
+        <ForecastPanel rated={rated} animKey={`${issueDate}-${turbine}-${horizon}`} rows={rows} issueDate={issueDate}
           onIssue={(d) => d >= ISSUE_MIN && d <= ISSUE_MAX && setIssueDate(d)}
           horizon={horizon} onHorizon={setHorizon} band={band} error={forecast.error} />
 

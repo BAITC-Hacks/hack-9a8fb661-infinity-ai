@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS agent_log (id INTEGER PRIMARY KEY, ts TEXT, session T
   issue_date TEXT, tool TEXT, params TEXT, result TEXT, reason TEXT);
 CREATE INDEX IF NOT EXISTS ix_log_issue ON agent_log(issue_date);
 CREATE TABLE IF NOT EXISTS wind_objects (object_id INTEGER PRIMARY KEY, name TEXT,
-  latitude REAL, longitude REAL, updated_at TEXT);
+  latitude REAL, longitude REAL, rated_power_mw REAL, tower_height_m REAL,
+  rotor_diameter_m REAL, turbine_model TEXT, metadata_source_url TEXT, updated_at TEXT);
 CREATE TABLE IF NOT EXISTS llm_cache (key TEXT PRIMARY KEY, model TEXT, response TEXT,
   prompt_tokens INTEGER, completion_tokens INTEGER, created_at TEXT);
 """
@@ -55,9 +56,10 @@ class SqliteStore(Store):
         try:
             con.execute("PRAGMA journal_mode = WAL")
             con.executescript(SQLITE_SCHEMA)
-            con.executemany("INSERT OR IGNORE INTO wind_objects VALUES (?,?,?,?,?)",
-                            [(o.object_id, o.name, o.lat, o.lon, now_iso())
-                             for o in config.TURBINES])
+            con.executemany("INSERT OR REPLACE INTO wind_objects VALUES (?,?,?,?,?,?,?,?,?,?)",
+                            [(o.object_id, o.name, o.lat, o.lon, o.rated_power_mw,
+                              o.tower_height_m, o.rotor_diameter_m, o.model,
+                              config.OBJECTS_SOURCE_URL, now_iso()) for o in config.TURBINES])
             con.commit()
         finally:
             con.close()
@@ -119,8 +121,9 @@ class SqliteStore(Store):
         return self._rows("SELECT * FROM agent_log ORDER BY id DESC LIMIT ?", (limit,))[::-1]
 
     def objects(self):
-        return self._rows("SELECT object_id, name, latitude, longitude FROM wind_objects"
-                          " ORDER BY object_id")
+        return self._rows("SELECT object_id, name, latitude, longitude, rated_power_mw,"
+                          " tower_height_m, rotor_diameter_m, turbine_model, metadata_source_url"
+                          " FROM wind_objects ORDER BY object_id")
 
     def cache_get(self, key):
         r = self._rows("SELECT response FROM llm_cache WHERE key=?", (key,))

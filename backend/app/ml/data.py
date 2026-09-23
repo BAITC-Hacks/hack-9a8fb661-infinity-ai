@@ -43,7 +43,46 @@ def to_hourly(df: pd.DataFrame, utc_offset: int = config.SOURCE_UTC_OFFSET) -> p
     return h.reset_index()
 
 
+def read_actuals(df: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    """wind_actuals (object_id, timestamp, avg_wind, avg_tmp, power_normalized) -> по турбинам."""
+    ids = {t.object_id: t.id for t in config.TURBINES}
+    df = df.rename(columns={"timestamp": "time", "avg_wind": "wind_speed", "avg_tmp": "temperature",
+                            "power_normalized": "power"})
+    df["time"] = pd.to_datetime(df["time"], errors="coerce")
+    if df["time"].dt.tz is not None:     # из ClickHouse приходит с поясом Etc/GMT-5
+        df["time"] = df["time"].dt.tz_localize(None)
+    out = {}
+    for oid, g in df.groupby("object_id"):
+        if int(oid) in ids:
+            g = g.dropna(subset=["time"]).drop_duplicates("time").sort_values("time")
+            out[ids[int(oid)]] = g[["time", "wind_speed", "power", "temperature"]]
+    return out
+
+
+def _hourly_from(parts_raw: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    parts = []
+    for tid, raw in parts_raw.items():
+        h = to_hourly(raw)
+        h["turbine"] = tid
+        parts.append(h)
+    return pd.concat(parts, ignore_index=True)[HISTORY_COLUMNS]
+
+
 def build_history() -> pd.DataFrame:
+    """Приоритет: таблица wind_actuals в ClickHouse -> data/raw/wind_actuals.csv -> CSV по турбинам."""
+    try:
+        from app import db
+        store = db.get_store()
+        if hasattr(store, "actuals"):
+            raw = store.actuals()
+            if raw is not None and len(raw):
+                return _hourly_from(read_actuals(raw))
+    except Exception as e:  # БД недоступна — работаем от файлов
+        import logging
+        logging.getLogger(__name__).warning("wind_actuals из БД недоступна: %s", e)
+    actuals = config.RAW_DIR / config.ACTUALS_FILE
+    if actuals.exists():
+        return _hourly_from(read_actuals(pd.read_csv(actuals)))
     parts = []
     for t in config.TURBINES:
         path = config.RAW_DIR / t.raw_file

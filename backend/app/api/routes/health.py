@@ -67,3 +67,17 @@ def data_summary(store=Depends(get_store)):
             "train_from": train["time"].min().strftime("%Y-%m-%d") if len(train) else None,
         })
     return {"storage": db.backend_name(), "tz_source": "Etc/GMT-5 (UTC+5)", "objects": out}
+
+
+@router.get("/anomalies")
+def anomalies():
+    """Аномалии, найденные системой в истории: простои, залипание, мощность без ветра, пропуски."""
+    from app.services.anomalies import find_anomalies
+    return find_anomalies()
+
+
+@router.get("/sources")
+def data_sources():
+    """Реестр источников данных и их состояние."""
+    from app.services.anomalies import sources
+    return sources()

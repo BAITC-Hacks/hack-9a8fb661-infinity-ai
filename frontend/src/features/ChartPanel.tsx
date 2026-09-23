@@ -21,10 +21,10 @@ export function ChartPanel(p: Props) {
   const c = usePalette()
   const [zoom, setZoom] = useState<[number, number] | null>(null)
   const [sel, setSel] = useState<{ a: number; b: number } | null>(null)
-  const [cbWind, setWind] = useState(false)
-  const [cbTemp, setTemp] = useState(false)
+  const [cbWind, setWind] = useState(true)
+  const [cbTemp, setTemp] = useState(true)
   const [cbPrev, setPrev] = useState(true)
-  const [cbBand, setBand] = useState(false)
+  const cbBand = false
 
   const data = useMemo(() => {
     const w = new Map(p.weather.map((x) => [x.time, x]))
@@ -113,7 +113,6 @@ export function ChartPanel(p: Props) {
               <label className="chk"><input type="checkbox" checked={cbWind} onChange={(e) => setWind(e.target.checked)} />{t('cb_wind')}</label>
               <label className="chk"><input type="checkbox" checked={cbTemp} onChange={(e) => setTemp(e.target.checked)} />{t('cb_temp')}</label>
               <label className="chk"><input type="checkbox" checked={cbPrev} onChange={(e) => setPrev(e.target.checked)} />{t('cb_prev')}</label>
-              <label className="chk"><input type="checkbox" checked={cbBand} onChange={(e) => setBand(e.target.checked)} />{t('band80')}</label>
               <span className="ml-auto flex items-center gap-4 text-[12px] text-mute">
                 {p.showFact && <span className="flex items-center gap-1.5"><i className="h-[2px] w-4" style={{ background: c.data }} />{t('k_fact')}</span>}
                 <span className="flex items-center gap-1.5"><i className="h-0 w-4" style={{ borderTop: `2px dashed ${c.blue}` }} />{t('k_forecast')}</span>

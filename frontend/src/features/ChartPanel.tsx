@@ -11,6 +11,7 @@ import type { View } from '../components/layout/FilterBar'
 interface Props {
   rows: ForecastRow[]; weather: WeatherPoint[]; rated: number; turbine: TurbineId
   issueDate: string; horizon: number; view: View; loading: boolean; error: string | null; band: (lead: number) => number
+  showFact: boolean; prevRows: { target_time: string; p_hat: number }[]
 }
 
 /** Панель 44px (крошки, допуск, пик, экспорт) + график с зумом | таблица + строка погоды по часам. */
@@ -22,17 +23,20 @@ export function ChartPanel(p: Props) {
 
   const data = useMemo(() => {
     const w = new Map(p.weather.map((x) => [x.time, x]))
+    const prev = new Map(p.prevRows.map((x) => [x.target_time, x.p_hat]))
     return p.rows.map((r, i) => {
       const wx = w.get(r.target_time)
-      const fcMw = r.p_hat * p.rated, factMw = r.actual == null ? null : r.actual * p.rated
+      const fcMw = r.p_hat * p.rated, factMw = !p.showFact || r.actual == null ? null : r.actual * p.rated
+      const pv = prev.get(r.target_time)
       return {
         i, time: r.target_time, fc: fcMw, fact: factMw,
         band: [Math.max(0, r.p_hat - p.band(r.lead_hours)) * p.rated, Math.min(1, r.p_hat + p.band(r.lead_hours)) * p.rated],
-        dev: factMw == null ? null : fcMw - factMw, devPct: r.actual == null ? null : (r.p_hat - r.actual) * 100,
+        dev: factMw == null ? null : fcMw - factMw, devPct: factMw == null || r.actual == null ? null : (r.p_hat - r.actual) * 100,
+        prev: pv == null ? null : pv * p.rated,
         wind: wx?.wind_speed_100m ?? null, gust: wx?.wind_gusts_10m ?? null, temp: wx?.temperature_2m ?? null,
       }
     })
-  }, [p.rows, p.weather, p.rated, p.band])
+  }, [p.rows, p.weather, p.rated, p.band, p.showFact, p.prevRows])
   const shown = zoom ? data.slice(zoom[0], zoom[1] + 1) : data
   const iPeak = data.length ? data.map((d) => d.fc).indexOf(Math.max(...data.map((d) => d.fc))) : -1
   const ticks = shown.filter((d) => new Date(d.time).getUTCHours() % 6 === 1).map((d) => d.i)
@@ -93,7 +97,8 @@ export function ChartPanel(p: Props) {
           <div className="p-3">
             <div className="mb-1 flex items-center gap-4 text-[12px] text-mute">
               <span className="flex items-center gap-1.5"><i className="h-[3px] w-4 rounded" style={{ background: c.blue }} />{t('k_forecast')}</span>
-              <span className="flex items-center gap-1.5"><i className="h-[3px] w-4 rounded" style={{ background: c.data }} />{t('k_fact')}</span>
+              {p.showFact && <span className="flex items-center gap-1.5"><i className="h-[3px] w-4 rounded" style={{ background: c.data }} />{t('k_fact')}</span>}
+              {p.prevRows.length > 0 && <span className="flex items-center gap-1.5"><i className="h-0 w-4" style={{ borderTop: `2px dotted ${c.mute}` }} />{t('pp_prev')}</span>}
               <span className="num ml-auto">{t('f_issue')} {ruDate(p.issueDate)} · {p.horizon} h · {t('mw')}</span>
             </div>
             <div className="h-[340px] select-none">
@@ -116,6 +121,7 @@ export function ChartPanel(p: Props) {
                   <Area dataKey="fc" stroke="none" fill="url(#gFc)" isAnimationActive animationDuration={900} />
                   <Line dataKey="fc" stroke={c.blue} strokeWidth={2.5} dot={false} type="monotone" isAnimationActive animationDuration={900}
                     activeDot={{ r: 4, fill: c.blue, stroke: c.panel, strokeWidth: 2 }} />
+                  <Line dataKey="prev" stroke={c.mute} strokeWidth={1.5} strokeDasharray="2 4" dot={false} type="monotone" isAnimationActive animationDuration={900} />
                   <Line dataKey="fact" stroke={c.data} strokeWidth={2.5} dot={false} type="monotone" connectNulls={false} isAnimationActive animationDuration={1000}
                     activeDot={{ r: 4, fill: c.data, stroke: c.panel, strokeWidth: 2 }} />
                   {sel && <ReferenceArea x1={Math.min(sel.a, sel.b)} x2={Math.max(sel.a, sel.b)} fill={c.blue} fillOpacity={0.1} />}

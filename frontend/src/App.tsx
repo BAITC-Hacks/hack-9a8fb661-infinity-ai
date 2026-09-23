@@ -1,13 +1,14 @@
 import { useCallback, useMemo, useState } from 'react'
 import { api } from './api/client'
 import type { TurbineId } from './api/types'
-import { FilterBar, type View } from './components/layout/FilterBar'
+import { FilterBar, type Mode, type View } from './components/layout/FilterBar'
 import { Sidebar } from './components/layout/Sidebar'
 import { TopBar } from './components/layout/TopBar'
 import { AgentWidget } from './features/AgentWidget'
 import { ChartPanel } from './features/ChartPanel'
 import { DailyErrorPanel } from './features/DailyErrorPanel'
 import { KpiStrip } from './features/KpiStrip'
+import { PassportCard } from './features/PassportCard'
 import { PowerCurvePanel } from './features/PowerCurvePanel'
 import { QualityPanel } from './features/QualityPanel'
 import { SiteMap } from './features/SiteMap'
@@ -23,6 +24,7 @@ export default function App() {
   const [horizon, setHorizon] = useState<24 | 48>(48)
   const [issueDate, setIssueDate] = useState('2026-01-31')
   const [view, setView] = useState<View>('chart')
+  const [mode, setMode] = useState<Mode>('eval')
   const [running, setRunning] = useState(false)
   const [runMsg, setRunMsg] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
@@ -32,6 +34,7 @@ export default function App() {
   const metrics = useAsync(api.metrics, [tick])
   const quality = useAsync(api.quality, [])
   const weather = useAsync(() => api.weather(issueDate), [issueDate])
+  const passport = useAsync(() => api.passport(issueDate), [issueDate, tick])
   const all = useAsync(() => Promise.all((['STATION', 'T1', 'T2'] as TurbineId[]).map((id) => api.forecast(issueDate, id))), [issueDate, tick])
   const log = useAsync(() => api.log(issueDate), [issueDate, tick])
   const timeline = useAsync(() => api.timeline(turbine), [turbine, tick])
@@ -60,14 +63,17 @@ export default function App() {
     <div className="min-h-full pl-14">
       <Sidebar onRun={run} running={running} runMsg={runMsg} onAgent={() => window.dispatchEvent(new Event('open-agent'))} />
       <TopBar ctx={ctx} />
-      <FilterBar turbine={turbine} onTurbine={setTurbine} horizon={horizon} onHorizon={setHorizon} issueDate={issueDate} onIssue={setIssueDate} view={view} onView={setView} />
-      <KpiStrip k={k} />
+      <FilterBar turbine={turbine} onTurbine={setTurbine} horizon={horizon} onHorizon={setHorizon} issueDate={issueDate} onIssue={setIssueDate} view={view} onView={setView} mode={mode} onMode={setMode} />
+      <KpiStrip k={k} showFact={mode === 'eval'} />
 
       <main className="space-y-4 p-4">
         <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
           <ChartPanel rows={rows} weather={weather.data ?? []} rated={rated} turbine={turbine} issueDate={issueDate} horizon={horizon}
-            view={view} loading={all.loading} error={all.error} band={band} />
-          <WhyCard rows={rows} weather={weather.data ?? []} run={current?.run ?? null} log={log.data ?? []} />
+            view={view} loading={all.loading} error={all.error} band={band} showFact={mode === 'eval'} prevRows={passport.data?.diff_vs_previous?.prev_rows ?? []} />
+          <div className="space-y-4">
+            <PassportCard p={passport.data} error={passport.error} />
+            <WhyCard rows={rows} weather={weather.data ?? []} run={current?.run ?? null} log={log.data ?? []} />
+          </div>
         </div>
 
         <SiteMap objects={objs} wind={peakWx?.wind_speed_100m ?? null} direction={peakWx?.wind_direction_100m ?? null} power={k.peakMw == null ? null : k.peakMw / rated} />

@@ -3,6 +3,7 @@ import type { TurbineId } from '../../api/types'
 import { useT } from '../../lib/i18n'
 
 export type View = 'chart' | 'table'
+export type Mode = 'then' | 'eval'
 export const ISSUE_MIN = '2026-01-01'
 export const ISSUE_MAX = '2026-02-27'
 
@@ -11,6 +12,7 @@ interface Props {
   horizon: 24 | 48; onHorizon: (h: 24 | 48) => void
   issueDate: string; onIssue: (d: string) => void
   view: View; onView: (v: View) => void
+  mode: Mode; onMode: (m: Mode) => void
 }
 
 const shift = (d: string, n: number) => {
@@ -41,6 +43,12 @@ export function FilterBar(p: Props) {
           <input type="date" value={p.issueDate} min={ISSUE_MIN} max={ISSUE_MAX} onChange={(e) => e.target.value && setIssue(e.target.value)}
             className="num h-full border-x border-line bg-bg px-2 text-[13px] text-text outline-none" />
           <button onClick={() => setIssue(shift(p.issueDate, 1))} disabled={p.issueDate >= ISSUE_MAX} aria-label="+1"><ChevronRight size={14} /></button>
+        </div>
+      </Field>
+      <Field label={t('f_mode')}>
+        <div className="seg">
+          <button className={p.mode === 'then' ? 'on' : ''} onClick={() => p.onMode('then')}>{t('mode_then')}</button>
+          <button className={p.mode === 'eval' ? 'on' : ''} onClick={() => p.onMode('eval')}>{t('mode_eval')}</button>
         </div>
       </Field>
       <Field label={t('f_view')}>

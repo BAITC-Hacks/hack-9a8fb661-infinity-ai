@@ -6,17 +6,18 @@ import { useT } from '../lib/i18n'
 const TONE: Record<Tone, string> = { neutral: 'text-text', good: 'text-good', warn: 'text-warn', bad: 'text-bad' }
 
 /** Полоса из пяти ключевых чисел; цвет числа = цвет линии на графике. */
-export function KpiStrip({ k }: { k: Kpis }) {
+export function KpiStrip({ k, showFact }: { k: Kpis; showFact: boolean }) {
   const { t } = useT()
-  const dev = devTone(k.devPct)
+  const dev = showFact ? devTone(k.devPct) : 'neutral'
+  const hid = t('hidden_then')
   return (
     <div className="grid grid-cols-2 divide-line border-b border-line bg-sunk md:grid-cols-5 md:divide-x">
       <Cell label={t('k_forecast')} value={k.forecastMwh} digits={1} unit={t('mwh')} color="text-blue" caption={t('c_forecast')} />
-      <Cell label={t('k_fact')} value={k.factMwh} digits={1} unit={t('mwh')} color="text-text" caption={k.nFact ? t('c_fact') : t('c_nofact')} />
-      <Cell label={t('k_dev')} value={k.devMwh} digits={1} unit={t('mwh')} color={TONE[dev]} sign
-        caption={k.devPct != null ? `${k.devPct > 0 ? '+' : ''}${k.devPct.toFixed(1)}% · ${t('c_dev', { tol: TOL_PCT })}` : t('c_dev', { tol: TOL_PCT })} />
+      <Cell label={t('k_fact')} value={showFact ? k.factMwh : null} digits={1} unit={t('mwh')} color="text-data" caption={!showFact ? hid : k.nFact ? t('c_fact') : t('c_nofact')} />
+      <Cell label={t('k_dev')} value={showFact ? k.devMwh : null} digits={1} unit={t('mwh')} color={TONE[dev]} sign
+        caption={!showFact ? hid : k.devPct != null ? `${k.devPct > 0 ? '+' : ''}${k.devPct.toFixed(1)}% · ${t('c_dev', { tol: TOL_PCT })}` : t('c_dev', { tol: TOL_PCT })} />
       <Cell label={t('k_peak')} value={k.peakMw} digits={2} unit={t('mw')} color="text-blue" caption={k.peakTime ? t('c_peak', { t: hhmm(k.peakTime) }) : '—'} />
-      <Cell label={t('k_acc')} value={k.accuracy} digits={1} unit="%" color={k.accuracy == null ? 'text-text' : k.accuracy >= 85 ? 'text-good' : k.accuracy >= 70 ? 'text-warn' : 'text-bad'} caption={t('c_acc')} />
+      <Cell label={t('k_acc')} value={showFact ? k.accuracy : null} digits={1} unit="%" color={!showFact || k.accuracy == null ? 'text-text' : k.accuracy >= 85 ? 'text-good' : k.accuracy >= 70 ? 'text-warn' : 'text-bad'} caption={showFact ? t('c_acc') : hid} />
     </div>
   )
 }

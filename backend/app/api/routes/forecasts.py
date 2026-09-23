@@ -68,3 +68,48 @@ def export_csv(store=Depends(get_store)):
     fc = store.latest_forecasts().drop(columns="run_id")
     return StreamingResponse(iter([fc.to_csv(index=False)]), media_type="text/csv",
                              headers={"Content-Disposition": "attachment; filename=forecasts.csv"})
+
+
+@router.get("/passport")
+def passport(issue_date: str = Depends(issue_date_param), store=Depends(get_store)):
+    """«Паспорт» выпуска: что было доступно на момент прогноза, версия модели, контрольные суммы,
+    изменение относительно предыдущего выпуска (машина времени)."""
+    import hashlib
+
+    import pandas as pd
+
+    from app.core import config
+    from app.ml.weather import forecast_for_issue
+
+    run = store.latest_run(issue_date)
+    if not run:
+        raise HTTPException(404, f"Нет прогноза на {issue_date}")
+    issue = pd.Timestamp(issue_date, tz="UTC")
+    w = forecast_for_issue(issue_date)
+    hist_end = min(get_agent().f.history["time"].max(), issue - pd.Timedelta(hours=1))
+    runs = {int(d): {"lead_day": int(d), "hours": f"+{g['lead_hours'].min()}…+{g['lead_hours'].max()}",
+                     "published_between": f"{g['run_time_max'].min():%Y-%m-%dT%H:%MZ} … {g['run_time_max'].max():%Y-%m-%dT%H:%MZ}"}
+            for d, g in w.groupby("lead_day")}
+    sig = w[["wind_speed_100m", "temperature_2m"]].round(2).assign(time=w["time"].astype(str))
+    w_hash = hashlib.sha256(sig.to_csv(index=False).encode()).hexdigest()[:12]
+    cur = store.forecasts(run["id"], "STATION")
+    prev_run = store.previous_run(issue_date)
+    diff = None
+    if prev_run:
+        prev = store.forecasts(prev_run["id"], "STATION")
+        j = cur.merge(prev, on="target_time", suffixes=("", "_prev"))
+        if len(j):
+            diff = {"prev_issue": prev_run["issue_date"], "overlap_hours": int(len(j)),
+                    "mean_abs_dp": round(float((j["p_hat"].astype(float) - j["p_hat_prev"].astype(float)).abs().mean()), 4),
+                    "mean_abs_dwind": round(float((j["v_eq"].astype(float) - j["v_eq_prev"].astype(float)).abs().mean()), 2),
+                    "prev_rows": prev[["target_time", "p_hat"]].astype({"p_hat": float}).to_dict("records")}
+    return {
+        "issue_date": issue_date, "issue_time_utc": issue.strftime("%Y-%m-%dT%H:%MZ"),
+        "issue_time_local": (issue + pd.Timedelta(hours=config.SOURCE_UTC_OFFSET)).strftime("%Y-%m-%d %H:%M"),
+        "history_available_until": hist_end.strftime("%Y-%m-%dT%H:%MZ"),
+        "weather": {"source": "Open-Meteo Previous Model Runs API", "variables": "*_previous_day1/2 (100 m wind, gusts, T, p)",
+                    "runs": list(runs.values()), "checksum": w_hash, "all_runs_before_issue": bool((w["run_time_max"] <= issue).all())},
+        "model": {"version": "curve+HGBR v1", "trained_until": run["model_trained_until"], "features": 15},
+        "run": {"id": run["id"], "created_at": run["created_at"], "status": run["status"], "weather_signature": run["weather_signature"]},
+        "diff_vs_previous": diff,
+    }

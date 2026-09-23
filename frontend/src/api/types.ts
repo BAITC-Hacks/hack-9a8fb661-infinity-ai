@@ -111,3 +111,11 @@ export interface WeatherPoint {
   temperature_2m: number | null
   surface_pressure: number | null
 }
+
+export interface Passport {
+  issue_date: string; issue_time_utc: string; issue_time_local: string; history_available_until: string
+  weather: { source: string; variables: string; runs: { lead_day: number; hours: string; published_between: string }[]; checksum: string; all_runs_before_issue: boolean }
+  model: { version: string; trained_until: string | null; features: number }
+  run: { id: number; created_at: string; status: string; weather_signature: number | null }
+  diff_vs_previous: { prev_issue: string; overlap_hours: number; mean_abs_dp: number; mean_abs_dwind: number; prev_rows: { target_time: string; p_hat: number }[] } | null
+}

@@ -15,6 +15,7 @@ from app import db
 from app.core import config
 from app.services import llm
 from app.ml.pipeline import Forecaster
+from app.services import quality
 
 log = logging.getLogger(__name__)
 
@@ -91,12 +92,13 @@ class ForecastAgent:
         # 2. подготовка данных
         hist_end = self.f.history["time"].max()
         after_hist = issue > hist_end + pd.Timedelta(hours=1)
-        gap = 0 if after_hist else self.f.data_gaps(issue_date)
+        gaps = quality.gaps_before(issue_date) if not after_hist else {"count": 0, "max_hours": 0}
+        gap = max(0 if after_hist else self.f.data_gaps(issue_date), gaps["max_hours"])
         low_conf = gap > GAP_LOW_CONF_H or missing_w > 0
         self._log(issue_date, "prepare_features",
-                  {"features": len(w.columns)},
-                  {"max_fact_gap_h": gap, "weather_missing_h": missing_w,
-                   "low_confidence": low_conf},
+                  {"features": len(w.columns), "gaps_source": "wind_actuals_gaps"},
+                  {"max_fact_gap_h": gap, "gaps_72h": gaps["count"],
+                   "weather_missing_h": missing_w, "low_confidence": low_conf},
                   f"пропуск факта {gap} ч подряд > {GAP_LOW_CONF_H} ч" if gap > GAP_LOW_CONF_H
                   else ("факт после 31.01 не предоставлен — модель использует историю до "
                         f"{hist_end:%Y-%m-%d %H:%M} UTC" if after_hist else None))

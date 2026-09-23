@@ -34,6 +34,7 @@ TURBINES = (
     Turbine("T2", 2, "Нурлы — турбина 2", 43.643194444, 78.538833333, "turbine2.csv"),
 )
 ACTUALS_FILE = "wind_actuals.csv"   # выгрузка wind_actuals дата-инженера (все объекты)
+GAPS_FILE = "wind_actuals_gaps.csv"  # отчёт о пропусках в wind_actuals (дата-инженер)
 # Обе турбины в одной ячейке сетки Open-Meteo — погодный ряд один на станцию.
 SITE_LAT = round(sum(t.lat for t in TURBINES) / len(TURBINES), 5)
 SITE_LON = round(sum(t.lon for t in TURBINES) / len(TURBINES), 5)
@@ -71,6 +72,10 @@ CLICKHOUSE_DB = os.getenv("CLICKHOUSE_DB", "default")
 # OpenAI-совместимый endpoint: пусто = api.openai.com; для vLLM на NVIDIA Brev —
 # http://localhost:8001/v1 (через brev port-forward)
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "").strip() or None
+# Провайдер: auto | vllm | openai | mock. auto = vllm (если задан LLM_BASE_URL) -> openai -> mock.
+# При сбое основного провайдера агент переходит к следующему в цепочке.
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "auto").strip().lower()
+VLLM_MODEL = os.getenv("VLLM_MODEL", "qwen")
 
 CORS_ORIGINS = [o.strip() for o in os.getenv(
     "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if o.strip()]

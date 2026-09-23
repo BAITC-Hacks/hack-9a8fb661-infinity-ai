@@ -1,114 +1,89 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { api } from './api/client'
 import type { TurbineId } from './api/types'
-import { Tile, type Tone } from './components/ui/Tile'
+import { FilterBar, type View } from './components/layout/FilterBar'
 import { Sidebar } from './components/layout/Sidebar'
+import { TopBar } from './components/layout/TopBar'
 import { AgentWidget } from './features/AgentWidget'
+import { ChartPanel } from './features/ChartPanel'
 import { DailyErrorPanel } from './features/DailyErrorPanel'
-import { ForecastPanel, ISSUE_MAX, ISSUE_MIN } from './features/ForecastPanel'
+import { KpiStrip } from './features/KpiStrip'
 import { PowerCurvePanel } from './features/PowerCurvePanel'
+import { QualityPanel } from './features/QualityPanel'
+import { StationList } from './features/StationList'
 import { TestPeriodPanel } from './features/TestPeriodPanel'
+import { Tree } from './features/Tree'
+import { WhyCard } from './features/WhyCard'
 import { useAsync } from './hooks/useAsync'
-import { pct } from './lib/format'
-
-const NAMES: Record<TurbineId, string> = { STATION: 'ВЭС «Нурлы»', T1: 'Турбина 1', T2: 'Турбина 2' }
+import { kpis } from './lib/calc'
+import { useT } from './lib/i18n'
 
 export default function App() {
+  const { t } = useT()
   const [turbine, setTurbine] = useState<TurbineId>('STATION')
   const [horizon, setHorizon] = useState<24 | 48>(48)
   const [issueDate, setIssueDate] = useState('2026-01-31')
+  const [view, setView] = useState<View>('chart')
   const [running, setRunning] = useState(false)
   const [runMsg, setRunMsg] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
-  const refresh = useCallback(() => setTick((t) => t + 1), [])
+  const refresh = useCallback(() => setTick((x) => x + 1), [])
 
-  const metrics = useAsync(api.metrics, [tick])
   const objects = useAsync(api.objects, [])
-  const forecast = useAsync(() => api.forecast(issueDate, turbine), [issueDate, turbine, tick])
+  const metrics = useAsync(api.metrics, [tick])
+  const quality = useAsync(api.quality, [])
+  const weather = useAsync(() => api.weather(issueDate), [issueDate])
+  const all = useAsync(() => Promise.all((['STATION', 'T1', 'T2'] as TurbineId[]).map((id) => api.forecast(issueDate, id))), [issueDate, tick])
+  const log = useAsync(() => api.log(issueDate), [issueDate, tick])
   const timeline = useAsync(() => api.timeline(turbine), [turbine, tick])
   const curve = useAsync(() => api.powerCurve(turbine), [turbine])
 
-  useEffect(() => { setRunMsg(null) }, [issueDate])
-
-  const rows = useMemo(() => (forecast.data?.rows ?? []).filter((r) => r.lead_hours <= horizon), [forecast.data, horizon])
-  const band = useCallback((lead: number) => {
-    const b = lead <= 24 ? '1-24h' : '25-48h'
-    return metrics.data?.by_turbine_and_horizon.find((m) => m.turbine === turbine && m.bucket === b)?.mae ?? 0.15
-  }, [metrics.data, turbine])
-
   const objs = objects.data ?? []
-  const ratedOf = (id: number) => objs.find((o) => o.object_id === id)?.rated_power_mw ?? 2.5
-  const rated = turbine === 'STATION' ? (objs.length ? objs.reduce((a, o) => a + (o.rated_power_mw ?? 2.5), 0) : 5)
-    : ratedOf(turbine === 'T1' ? 1 : 2)
-  const model = objs[0]?.turbine_model
-  const k = kpis(rows)
+  const ratedOf = (id: TurbineId) => id === 'STATION'
+    ? (objs.length ? objs.reduce((a, o) => a + (o.rated_power_mw ?? 2.5), 0) : 5)
+    : objs.find((o) => o.object_id === (id === 'T1' ? 1 : 2))?.rated_power_mw ?? 2.5
+  const rated = ratedOf(turbine)
+  const byTurbine = useMemo(() => Object.fromEntries((all.data ?? []).map((f, i) => [(['STATION', 'T1', 'T2'] as TurbineId[])[i], f.rows])), [all.data])
+  const current = (all.data ?? [])[(['STATION', 'T1', 'T2'] as TurbineId[]).indexOf(turbine)] ?? null
+  const rows = useMemo(() => (current?.rows ?? []).filter((r) => r.lead_hours <= horizon), [current, horizon])
+  const band = useCallback((lead: number) => metrics.data?.by_turbine_and_horizon.find((m) => m.turbine === turbine && m.bucket === (lead <= 24 ? '1-24h' : '25-48h'))?.mae ?? 0.15, [metrics.data, turbine])
+  const k = kpis(rows, rated)
+
   const run = async () => {
     setRunning(true)
-    try { const r = await api.run(issueDate); setRunMsg(`Готово: ${r.status}`); refresh() }
-    catch (e) { setRunMsg(`Ошибка: ${(e as Error).message}`) }
+    try { const r = await api.run(issueDate); setRunMsg(`${t('done')}: ${r.status}`); refresh() }
+    catch (e) { setRunMsg(`${t('err')}: ${(e as Error).message}`) }
     finally { setRunning(false) }
   }
-  const status = forecast.data?.run.status
+  const ctx = t('ctx', { n: objs.length || 2, mw: ratedOf('STATION'), model: objs[0]?.turbine_model ?? 'Goldwind GW109/2500' })
 
   return (
     <div className="min-h-full pl-14">
       <Sidebar turbine={turbine} onTurbine={setTurbine} onRun={run} running={running} runMsg={runMsg} />
+      <TopBar ctx={ctx} />
+      <FilterBar turbine={turbine} onTurbine={setTurbine} horizon={horizon} onHorizon={setHorizon} issueDate={issueDate} onIssue={setIssueDate} view={view} onView={setView} />
+      <KpiStrip k={k} />
 
-      <main className="mx-auto max-w-[1400px] space-y-4 p-5">
-        <header className="flex flex-wrap items-baseline justify-between gap-2">
-          <div>
-            <h1 key={turbine + horizon} className="rise text-[22px] font-semibold">{NAMES[turbine]} · выработка на {horizon} ч</h1>
-            <p className="text-[13px] text-mute">
-              {turbine === 'STATION' ? `${objs.length || 2} × ` : ''}{model ?? 'Goldwind GW109/2500'} · {rated} МВт
-            </p>
-          </div>
-          {status && (
-            <span className={`text-sm ${status === 'ok' ? 'text-mute' : 'text-warn'}`}>
-              {status === 'ok' ? 'данные полные' : 'пониженная достоверность'}
-            </span>
-          )}
-        </header>
-
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
-          <Tile delay={0} label="Энергия за горизонт" value={k.energy == null ? null : k.energy * rated} format={(v) => v.toFixed(1)} unit="МВт·ч" />
-          <Tile delay={60} label="Средняя мощность" value={k.mean == null ? null : k.mean * rated} format={(v) => v.toFixed(2)} unit={`МВт · ${pct(k.mean)}`} />
-          <Tile delay={120} label="Пик" value={k.peak == null ? null : k.peak * rated} format={(v) => v.toFixed(2)} unit={`МВт · ${pct(k.peak)}`} />
-          <Tile delay={180} label="MAE выпуска" value={k.mae} format={(v) => v.toFixed(3)} />
-          <Tile delay={240} label="Выигрыш у базы" value={k.skill} format={(v) => `${v > 0 ? '+' : ''}${pct(v)}`} tone={k.tone} />
+      <main className="space-y-4 p-4">
+        <div className="grid gap-4 xl:grid-cols-[300px_1fr_360px]">
+          <Tree objects={objs} turbine={turbine} onTurbine={setTurbine} />
+          <ChartPanel rows={rows} weather={weather.data ?? []} rated={rated} turbine={turbine} issueDate={issueDate} horizon={horizon}
+            view={view} loading={all.loading} error={all.error} band={band} />
+          <StationList objects={objs} byTurbine={byTurbine} horizon={horizon} turbine={turbine} onTurbine={setTurbine} />
         </div>
 
-        <ForecastPanel rated={rated} animKey={`${issueDate}-${turbine}-${horizon}`} rows={rows} issueDate={issueDate}
-          onIssue={(d) => d >= ISSUE_MIN && d <= ISSUE_MAX && setIssueDate(d)}
-          horizon={horizon} onHorizon={setHorizon} band={band} error={forecast.error} />
+        <WhyCard rows={rows} weather={weather.data ?? []} run={current?.run ?? null} log={log.data ?? []} />
 
-        <div className="grid gap-4 min-[1000px]:grid-cols-2">
+        <div className="grid gap-4 min-[1000px]:grid-cols-3">
           <PowerCurvePanel data={curve.data} error={curve.error} />
           <DailyErrorPanel daily={metrics.data?.daily ?? []} turbine={turbine} error={metrics.error} />
+          <QualityPanel q={quality.data} error={quality.error} />
         </div>
-
-        <TestPeriodPanel points={timeline.data ?? []} error={timeline.error} />
+        <TestPeriodPanel points={timeline.data ?? []} rated={rated} error={timeline.error} />
+        <footer className="pb-2 text-center text-[11px] text-mute">{t('footer')}</footer>
       </main>
 
       <AgentWidget onChanged={refresh} />
     </div>
   )
-}
-
-function kpis(rows: { p_hat: number; actual: number | null; baseline: number | null }[]) {
-  const p = rows.map((r) => r.p_hat)
-  const energy = p.reduce((a, b) => a + b, 0)
-  const fact = rows.filter((r) => r.actual != null)
-  const mae = fact.length ? fact.reduce((a, r) => a + Math.abs(r.actual! - r.p_hat), 0) / fact.length : null
-  const base = fact.filter((r) => r.baseline != null)
-  const maeB = base.length ? base.reduce((a, r) => a + Math.abs(r.actual! - r.baseline!), 0) / base.length : null
-  const skill = mae != null && maeB ? 1 - mae / maeB : null
-  const tone: Tone = skill == null ? 'neutral' : skill > 0 ? 'good' : 'warn'
-  return {
-    energy: p.length ? energy : null,
-    mean: p.length ? energy / p.length : null,
-    peak: p.length ? Math.max(...p) : null,
-    mae,
-    skill,
-    tone,
-  }
 }

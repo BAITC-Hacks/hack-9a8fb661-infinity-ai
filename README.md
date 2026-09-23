@@ -84,7 +84,9 @@ cd frontend && npm install && npm run dev   # UI: http://localhost:5173
 |---|---|---|
 | `USE_MOCK_LLM` | `true` | сохранённые/шаблонные ответы LLM, ключ не нужен |
 | `OPENAI_API_KEY` | пусто | ключ OpenAI (только для живого LLM) |
-| `LLM_BASE_URL` | пусто | OpenAI-совместимый endpoint (vLLM на NVIDIA Brev) |
+| `LLM_BASE_URL` | пусто | OpenAI-совместимый endpoint (vLLM на NVIDIA Brev), напр. `http://localhost:8001/v1` |
+| `LLM_PROVIDER` | `auto` | `vllm` / `openai` / `mock`; `auto` = vLLM → OpenAI → mock, при сбое переход к следующему |
+| `VLLM_MODEL` | `qwen` | имя модели на vLLM (Qwen3.8-27B) |
 | `OPENAI_MODEL_FAST` / `_STRONG` | `gpt-4o-mini` / `gpt-4o` | маршрутизация: сводки / диалог |
 | `LLM_MAX_TOKENS` | `600` | лимит вывода |
 | `DB_BACKEND` | `sqlite` | `clickhouse` или `sqlite`; если ClickHouse недоступен — автоматически SQLite |
@@ -146,6 +148,6 @@ MAE — в долях номинальной мощности. Факт по ф�
 ## Почасовой прогресс
 - **13–14:** разбор ТЗ, данные, проверка часового пояса, архив погоды, модель, агент, ClickHouse/SQLite, FastAPI, React UI, Docker.
 - **14–15:** интерфейс пульта диспетчера, справочник wind_objects, кривая мощности и ошибки по дням, тесты, LLM Qwen3.8 на NVIDIA H200 (Brev).
-- **15–16:** …
+- **15–16:** страница «AI Прогноз» (полоса ключевых чисел, дерево объектов, график/таблица, слои погоды Open-Meteo, «Почему такой прогноз»), таблицы wind_actuals и wind_actuals_gaps, качество данных, Рус/Қаз, светлая/тёмная тема, цепочка LLM vLLM → OpenAI → mock.
 - **16–17:** …
 - **17–18:** …

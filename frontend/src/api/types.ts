@@ -94,3 +94,20 @@ export interface WindObject {
   turbine_model: string | null
   metadata_source_url: string
 }
+
+export interface QualitySummary {
+  turbines: { turbine: string; count: number; hours: number; longest: number }[]
+  monthly: ({ month: string } & Record<string, number | string>)[]
+  longest: { turbine: string; start: string; hours: number }[]
+  total_hours: number
+}
+
+export interface WeatherPoint {
+  time: string
+  lead_hours: number
+  wind_speed_100m: number | null
+  wind_direction_100m: number | null
+  wind_gusts_10m: number | null
+  temperature_2m: number | null
+  surface_pressure: number | null
+}

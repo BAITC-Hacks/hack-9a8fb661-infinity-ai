@@ -1,5 +1,5 @@
 import type {
-  AgentLogEntry, ForecastResponse, WindObject, Health, MetricsResponse, PowerCurve, Run, TimelinePoint, TurbineId,
+  AgentLogEntry, ForecastResponse, QualitySummary, WeatherPoint, WindObject, Health, MetricsResponse, PowerCurve, Run, TimelinePoint, TurbineId,
 } from './types'
 
 export class ApiError extends Error {
@@ -30,6 +30,8 @@ const q = (params: Record<string, string | number | boolean | undefined>) =>
 export const api = {
   health: () => request<Health>('/api/health'),
   objects: () => request<WindObject[]>('/api/objects'),
+  quality: () => request<QualitySummary>('/api/quality'),
+  weather: (issue_date: string) => request<WeatherPoint[]>(`/api/weather?${q({ issue_date })}`),
   issues: () => request<Run[]>('/api/issues'),
   forecast: (issue_date: string, turbine: TurbineId) =>
     request<ForecastResponse>(`/api/forecast?${q({ issue_date, turbine })}`),
@@ -41,6 +43,6 @@ export const api = {
     request<TimelinePoint[]>(`/api/timeline?${q({ turbine, max_lead })}`),
   run: (issue_date: string, force = true) =>
     request<Run>(`/api/run?${q({ issue_date, force })}`, { method: 'POST' }),
-  agentStreamUrl: (question: string) => `/api/agent?${q({ q: question })}`,
+  agentStreamUrl: (question: string, lang: string) => `/api/agent?${q({ q: question, lang })}`,
   exportCsvUrl: '/api/export/forecasts.csv',
 }

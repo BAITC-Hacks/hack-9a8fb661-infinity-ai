@@ -41,9 +41,20 @@ TOOLS = [
             "issue_date": {"type": "string"}}, "required": ["issue_date"]}}},
 ]
 
-SYSTEM = ("Ты агент прогнозирования выработки ВЭС (2 турбины, Алматинская обл.). Отвечай по-"
-          "русски, кратко, опираясь только на данные инструментов. Мощность — доля номинала "
-          "0..1. Время в данных — UTC (местное = UTC+5). Даты выпуска: 2026-01-01..2026-02-27.")
+SYSTEM = ("Ты инженер-агент прогнозирования выработки ВЭС «Нурлы» (2 турбины Goldwind 2.5 МВт, "
+          "Алматинская обл.). Отвечай кратко, опираясь только на данные инструментов. Мощность — "
+          "доля номинала 0..1 (1 = 2.5 МВт на турбину, 5 МВт станция). Время в данных — UTC "
+          "(местное = UTC+5). Даты выпуска: 2026-01-01..2026-02-27. Язык ответа: {lang}.")
+LANG_NAME = {"ru": "русский", "kk": "казахский (қазақша)"}
+
+KK = {  # шаблоны mock-ответов на казахском
+    "forecast": "{d} шығарылымы: орташа қуат номиналдың {mean:.0%}, ең жоғарысы {max:.0%} ({tmax}), "
+                "ең төменгісі {min:.0%} ({tmin}).",
+    "metrics": "Қаңтар бэктестіндегі сапа (станция): ",
+    "metric_row": "{bucket}: MAE {mae:.3f}, персистенттіліктен {skill:.0%} жақсы",
+    "log": "Агент шешімдері: ", "log_none": "қайта есептеу мен ескертулер болмады",
+    "run": "Қайта есептелді (run {id}, күйі {status}).",
+}
 
 
 def validate_date(s: str) -> str:
@@ -100,22 +111,35 @@ def _mock_plan(q):
     ql = q.lower()
     date = _extract_date(q)
     plan = []
-    if any(w in ql for w in ("пересч", "обнов", "запуст", "rerun")) and date:
+    if any(w in ql for w in ("пересч", "обнов", "запуст", "rerun", "қайта есепте")) and date:
         plan.append(("run_forecast", {"issue_date": date}))
-    if any(w in ql for w in ("качеств", "метрик", "mae", "точност", "ошибк")):
+    if any(w in ql for w in ("качеств", "метрик", "mae", "точност", "ошибк", "дәл", "сапа", "қате")):
         plan.append(("get_metrics", {}))
-    if any(w in ql for w in ("почему", "журнал", "лог", "решени")) and date:
+    if any(w in ql for w in ("почему", "журнал", "лог", "решени", "неге", "себеп", "шешім")) and date:
         plan.append(("get_agent_log", {"issue_date": date}))
     if date and not any(p[0] == "get_forecast" for p in plan):
         plan.append(("get_forecast", {"issue_date": date}))
     return plan or [("get_metrics", {})]
 
 
-def _mock_answer(results):
+def _mock_answer(results, lang="ru"):
     parts = []
     for name, res in results:
         if isinstance(res, dict) and "error" in res:
             parts.append(res["error"])
+        elif lang == "kk":
+            if name == "get_forecast":
+                parts.append(KK["forecast"].format(d=res["issue_date"], mean=res["mean_p"],
+                             max=res["max"]["p"], tmax=res["max"]["time"], min=res["min"]["p"],
+                             tmin=res["min"]["time"]))
+            elif name == "get_metrics":
+                st = [r for r in res["by_turbine_and_horizon"] if r["turbine"] == "STATION"]
+                parts.append(KK["metrics"] + "; ".join(KK["metric_row"].format(**r) for r in st) + ".")
+            elif name == "get_agent_log":
+                reasons = [r["reason"] for r in res if r["reason"]]
+                parts.append(KK["log"] + ("; ".join(reasons) if reasons else KK["log_none"]) + ".")
+            elif name == "run_forecast":
+                parts.append(KK["run"].format(id=res["run_id"], status=res["status"]))
         elif name == "get_forecast":
             parts.append(f"Выпуск {res['issue_date']}: средняя мощность {res['mean_p']:.0%} "
                          f"номинала, максимум {res['max']['p']:.0%} в {res['max']['time']}, "
@@ -135,8 +159,9 @@ def _mock_answer(results):
     return "[mock] " + " ".join(parts)
 
 
-def ask(question: str, agent_factory):
+def ask(question: str, agent_factory, lang: str = "ru"):
     """Генератор событий: {"type": "tool_call"|"tool_result"|"answer"|"error", ...}."""
+    lang = lang if lang in LANG_NAME else "ru"
     if llm.is_mock():
         results = []
         for name, args in _mock_plan(question):
@@ -147,10 +172,11 @@ def ask(question: str, agent_factory):
                 res = {"error": str(e)}
             results.append((name, res))
             yield {"type": "tool_result", "name": name, "result": res}
-        yield {"type": "answer", "text": _mock_answer(results)}
+        yield {"type": "answer", "text": _mock_answer(results, lang)}
         return
 
-    messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": question}]
+    messages = [{"role": "system", "content": SYSTEM.format(lang=LANG_NAME[lang])},
+                {"role": "user", "content": question}]
     for _ in range(MAX_STEPS):
         msg = llm.chat(messages, strong=True, tools=TOOLS)
         messages.append(msg)

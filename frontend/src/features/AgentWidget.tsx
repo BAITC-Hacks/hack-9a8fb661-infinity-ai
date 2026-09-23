@@ -1,14 +1,14 @@
 import { Check, HardHat, Loader2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useAgentStream } from '../hooks/useAgentStream'
-
-const CHIPS = ['Насколько точна модель?', 'Прогноз на 12.02', 'Почему пересчёт 25.02?']
+import { useT } from '../lib/i18n'
 
 /** Агент-инженер в правом нижнем углу: обычный чат, шаги работы — человеческим языком. */
 export function AgentWidget({ onChanged }: { onChanged: () => void }) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
-  const { msgs, busy, ask } = useAgentStream(onChanged)
+  const { t, d, lang } = useT()
+  const { msgs, busy, ask } = useAgentStream(d, lang, onChanged)
   const box = useRef<HTMLDivElement>(null)
   useEffect(() => { box.current?.scrollTo({ top: box.current.scrollHeight, behavior: 'smooth' }) }, [msgs])
 
@@ -24,8 +24,8 @@ export function AgentWidget({ onChanged }: { onChanged: () => void }) {
           <div className="flex items-center gap-2.5">
             <span className="grid size-8 place-items-center rounded-full bg-blue/15 text-blue"><HardHat size={17} /></span>
             <div>
-              <div className="text-sm font-semibold">Инженер-агент</div>
-              <div className="text-xs text-mute">{busy ? 'работает…' : 'на связи'}</div>
+              <div className="text-sm font-semibold">{t('agent')}</div>
+              <div className="text-xs text-mute">{busy ? t('working') : t('online')}</div>
             </div>
           </div>
           <button onClick={() => setOpen(false)} aria-label="Закрыть" className="text-mute transition-colors hover:text-text"><X size={18} /></button>
@@ -34,9 +34,9 @@ export function AgentWidget({ onChanged }: { onChanged: () => void }) {
         <div ref={box} className="scroll-thin flex-1 space-y-3 overflow-y-auto px-4 py-3">
           {!msgs.length && (
             <div className="pop pt-6 text-center">
-              <p className="text-base">Спросите о прогнозе выработки</p>
+              <p className="text-base">{t('ask_hint')}</p>
               <div className="mt-4 flex flex-wrap justify-center gap-2">
-                {CHIPS.map((c) => (
+                {d.chips.map((c) => (
                   <button key={c} onClick={() => submit(c)}
                     className="rounded-[20px] border border-line px-3 py-1 text-[13px] text-mute transition-colors hover:border-blue hover:text-text">{c}</button>
                 ))}
@@ -65,13 +65,13 @@ export function AgentWidget({ onChanged }: { onChanged: () => void }) {
         </div>
 
         <form onSubmit={(e) => { e.preventDefault(); submit(q) }} className="flex gap-2 border-t border-line p-3">
-          <input value={q} onChange={(e) => setQ(e.target.value)} maxLength={500} placeholder="Ваш вопрос"
+          <input value={q} onChange={(e) => setQ(e.target.value)} maxLength={500} placeholder={t('ask_ph')}
             className="field flex-1 text-[15px]" />
-          <button disabled={busy} className="rounded-lg bg-blue px-4 text-sm font-semibold text-ink transition-opacity disabled:opacity-50">Спросить</button>
+          <button disabled={busy} className="rounded-lg bg-blue px-4 text-sm font-semibold text-ink transition-opacity disabled:opacity-50">{t('ask')}</button>
         </form>
       </div>
 
-      <button onClick={() => setOpen((o) => !o)} aria-label="Инженер-агент"
+      <button onClick={() => setOpen((o) => !o)} aria-label={t('agent')}
         className={`fixed right-5 bottom-5 z-40 grid size-14 place-items-center rounded-full border bg-panel transition-all duration-200 hover:scale-105 ${open ? 'border-blue text-blue' : 'pulse border-blue/60 text-text'}`}>
         {open ? <X size={24} /> : <HardHat size={26} />}
       </button>

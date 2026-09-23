@@ -51,6 +51,18 @@ def timeline(turbine: TurbineId = "STATION", max_lead: int = Query(24, ge=1, le=
     return fc[["issue_date", "target_time", "lead_hours", "p_hat", "actual"]].to_dict("records")
 
 
+@router.get("/weather")
+def weather(issue_date: str = Depends(issue_date_param)):
+    """Архивный прогноз погоды, известный на момент выпуска (для слоёв на графике)."""
+    from app.ml.weather import forecast_for_issue
+    w = forecast_for_issue(issue_date)
+    cols = ["time", "lead_hours", "wind_speed_100m", "wind_direction_100m", "wind_gusts_10m",
+            "temperature_2m", "surface_pressure"]
+    w = w[cols].copy()
+    w["time"] = w["time"].dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return _clean(w).to_dict("records")
+
+
 @router.get("/export/forecasts.csv", response_class=StreamingResponse)
 def export_csv(store=Depends(get_store)):
     fc = store.latest_forecasts().drop(columns="run_id")

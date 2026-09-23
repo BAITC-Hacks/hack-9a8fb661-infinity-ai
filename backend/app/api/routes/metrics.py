@@ -24,3 +24,10 @@ def _curve(turbine: str):
 def power_curve(turbine: TurbineId = "STATION"):
     """История (прогнозный ветер 100 м с поправкой на плотность → факт мощности) и кривая."""
     return _curve(turbine)
+
+
+@router.get("/quality")
+def data_quality():
+    """Сводка пропусков в факте (wind_actuals_gaps): по турбинам, по месяцам, самые длинные."""
+    from app.services.quality import summary
+    return summary()

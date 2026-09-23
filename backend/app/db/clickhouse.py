@@ -50,6 +50,22 @@ ENGINE = ReplacingMergeTree(loaded_at)
 PARTITION BY toYYYYMM(timestamp)
 ORDER BY (object_id, timestamp)"""
 
+WIND_GAPS_DDL = """CREATE TABLE IF NOT EXISTS wind_actuals_gaps
+(
+    object_id UInt32,
+    last_before DateTime64(3, 'Etc/GMT-5'),
+    first_missing DateTime64(3, 'Etc/GMT-5'),
+    last_missing DateTime64(3, 'Etc/GMT-5'),
+    first_after DateTime64(3, 'Etc/GMT-5'),
+    missing_slots UInt32 COMMENT 'Пропущено 10-минутных интервалов',
+    missing_hours Float64 COMMENT 'Длительность пропуска, ч',
+    loaded_at DateTime64(3, 'Etc/GMT-5') DEFAULT now64(3, 'Etc/GMT-5')
+)
+ENGINE = ReplacingMergeTree(loaded_at)
+ORDER BY (object_id, first_missing)"""
+GAP_COLS = ["object_id", "last_before", "first_missing", "last_missing", "first_after",
+            "missing_slots", "missing_hours"]
+
 OBJECT_COLS = ["object_id", "name", "latitude", "longitude", "rated_power_mw", "tower_height_m",
                "rotor_diameter_m", "turbine_model", "metadata_source_url"]
 
@@ -57,6 +73,7 @@ CH_SCHEMA = [
     WIND_OBJECTS_DDL,
     *WIND_OBJECTS_MIGRATE,
     WIND_ACTUALS_DDL,
+    WIND_GAPS_DDL,
     """CREATE TABLE IF NOT EXISTS runs (id UInt64, created_at DateTime('UTC'), issue_date Date,
        mode LowCardinality(String), status LowCardinality(String), model_trained_until String,
        weather_signature Float64, summary String) ENGINE = MergeTree ORDER BY (issue_date, id)""",
@@ -128,6 +145,25 @@ class ClickHouseStore(Store):
                                               config.OBJECTS_SOURCE_URL] for o in config.TURBINES],
                             column_names=OBJECT_COLS)
         self._load_actuals()
+        self._load_gaps()
+
+    def _load_gaps(self):
+        path = config.RAW_DIR / config.GAPS_FILE
+        if not path.exists() or self.cli.query("SELECT count() FROM wind_actuals_gaps"
+                                               ).result_rows[0][0]:
+            return
+        df = pd.read_csv(path)
+        for c in GAP_COLS[1:5]:
+            df[c] = pd.to_datetime(df[c]).dt.tz_localize("Etc/GMT-5")
+        self.cli.insert_df("wind_actuals_gaps", df[GAP_COLS], column_names=GAP_COLS)
+
+    def gaps(self) -> pd.DataFrame:
+        df = self.cli.query_df(f"SELECT {', '.join(GAP_COLS)} FROM wind_actuals_gaps FINAL"
+                               " ORDER BY object_id, first_missing")
+        for c in GAP_COLS[1:5]:
+            if df[c].dt.tz is not None:
+                df[c] = df[c].dt.tz_localize(None)
+        return df
 
     def _load_actuals(self):
         """Первичная загрузка wind_actuals из выгрузки дата-инженера (если таблица пуста)."""

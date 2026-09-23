@@ -29,6 +29,9 @@ services:
       USE_MOCK_LLM: ${USE_MOCK_LLM:-true}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_PROVIDER: ${LLM_PROVIDER:-auto}
+      VLLM_MODEL: ${VLLM_MODEL:-qwen}
+    extra_hosts: ["host.docker.internal:host-gateway"]   # туннель к vLLM на хосте
     ports: ["8010:8000"]
 
   frontend:

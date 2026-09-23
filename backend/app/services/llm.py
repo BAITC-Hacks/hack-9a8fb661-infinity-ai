@@ -9,21 +9,43 @@ from app.core import config
 log = logging.getLogger(__name__)
 
 
+def providers() -> list[str]:
+    """Цепочка провайдеров в порядке приоритета (без mock)."""
+    if config.USE_MOCK_LLM:
+        return []
+    avail = []
+    if config.LLM_BASE_URL:
+        avail.append("vllm")
+    if config.OPENAI_API_KEY:
+        avail.append("openai")
+    if config.LLM_PROVIDER in ("vllm", "openai"):
+        return [config.LLM_PROVIDER] if config.LLM_PROVIDER in avail else []
+    return avail
+
+
 def is_mock() -> bool:
-    # self-hosted vLLM (LLM_BASE_URL) ключа не требует
-    return config.USE_MOCK_LLM or not (config.OPENAI_API_KEY or config.LLM_BASE_URL)
+    return not providers()
 
 
 def provider() -> str:
-    if is_mock():
+    chain = providers()
+    if not chain:
         return "mock"
-    return f"vllm@{config.LLM_BASE_URL}" if config.LLM_BASE_URL else "openai"
+    names = {"vllm": f"vllm:{config.VLLM_MODEL}", "openai": f"openai:{config.OPENAI_MODEL_STRONG}"}
+    return " → ".join(names[p] for p in chain) + " → mock"
 
 
-def _client():
+def _client(prov: str):
     from openai import OpenAI
-    return OpenAI(api_key=config.OPENAI_API_KEY or "not-needed", base_url=config.LLM_BASE_URL,
-                  timeout=60, max_retries=2)
+    if prov == "vllm":
+        return OpenAI(api_key="not-needed", base_url=config.LLM_BASE_URL, timeout=90, max_retries=1)
+    return OpenAI(api_key=config.OPENAI_API_KEY, timeout=60, max_retries=2)
+
+
+def _model(prov: str, strong: bool) -> str:
+    if prov == "vllm":
+        return config.VLLM_MODEL
+    return config.OPENAI_MODEL_STRONG if strong else config.OPENAI_MODEL_FAST
 
 
 def _key(model, messages, tools):
@@ -32,28 +54,41 @@ def _key(model, messages, tools):
 
 
 def chat(messages, strong=False, tools=None):
-    """Возвращает message-объект OpenAI (dict). Одинаковые запросы берутся из кеша."""
-    model = config.OPENAI_MODEL_STRONG if strong else config.OPENAI_MODEL_FAST
-    key = _key(model, messages, tools)
+    """Возвращает message-объект OpenAI (dict). Одинаковые запросы берутся из кеша.
+    Провайдеры пробуются по цепочке; исключение — только если упали все."""
     store = db.get_store()
-    hit = store.cache_get(key)
-    if hit:
-        return json.loads(hit)
-    kwargs = dict(model=model, messages=messages, max_tokens=config.LLM_MAX_TOKENS,
-                  temperature=0.2)
-    if tools:
-        kwargs["tools"] = tools
-    if config.LLM_BASE_URL:
-        # self-hosted Qwen3.8 (vLLM): без режима размышлений — быстрые ответы агента
-        kwargs["extra_body"] = {"chat_template_kwargs": {"enable_thinking": False}}
-    resp = _client().chat.completions.create(**kwargs)
-    msg = resp.choices[0].message.model_dump(exclude_none=True)
-    usage = resp.usage
-    log.info("llm %s tokens: prompt=%s completion=%s", model, usage.prompt_tokens,
-             usage.completion_tokens)
-    store.cache_put(key, model, json.dumps(msg, ensure_ascii=False), usage.prompt_tokens,
-                    usage.completion_tokens)
-    return msg
+    last_err = None
+    for prov in providers():
+        model = _model(prov, strong)
+        key = _key(f"{prov}/{model}", messages, tools)
+        hit = store.cache_get(key)
+        if hit:
+            return json.loads(hit)
+        kwargs = dict(model=model, messages=messages, max_tokens=config.LLM_MAX_TOKENS,
+                      temperature=0.2)
+        if tools:
+            kwargs["tools"] = tools
+        if prov == "vllm":
+            # Qwen3.8 на vLLM: без режима размышлений — быстрые ответы агента
+            kwargs["extra_body"] = {"chat_template_kwargs": {"enable_thinking": False}}
+        try:
+            resp = _client(prov).chat.completions.create(**kwargs)
+        except Exception as e:
+            last_err = e
+            log.warning("llm %s недоступен (%s) — следующий провайдер", prov, e)
+            continue
+        msg = resp.choices[0].message.model_dump(exclude_none=True)
+        msg.pop("reasoning_content", None)
+        msg.pop("reasoning", None)
+        usage = resp.usage
+        log.info("llm %s/%s tokens: prompt=%s completion=%s", prov, model,
+                 usage.prompt_tokens if usage else None,
+                 usage.completion_tokens if usage else None)
+        store.cache_put(key, f"{prov}/{model}", json.dumps(msg, ensure_ascii=False),
+                        usage.prompt_tokens if usage else 0,
+                        usage.completion_tokens if usage else 0)
+        return msg
+    raise RuntimeError(f"Все LLM-провайдеры недоступны: {last_err}")
 
 
 SUMMARY_SYSTEM = (

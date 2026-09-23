@@ -24,11 +24,12 @@ def agent_log(issue_date: str | None = Depends(optional_issue_date),
 
 
 @router.get("/agent")
-def agent_chat(q: str = Query(..., min_length=2, max_length=500)):
-    """SSE-поток: tool_call / tool_result / answer / done."""
+def agent_chat(q: str = Query(..., min_length=2, max_length=500),
+               lang: str = Query("ru", pattern="^(ru|kk)$")):
+    """SSE-поток: tool_call / tool_result / answer / done. lang — язык ответа."""
     def stream():
         try:
-            for ev in ask(q, get_agent):
+            for ev in ask(q, get_agent, lang):
                 yield f"data: {json.dumps(ev, ensure_ascii=False, default=str)}\n\n"
         except Exception as e:
             log.exception("chat failed")

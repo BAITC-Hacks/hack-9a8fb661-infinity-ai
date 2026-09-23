@@ -20,7 +20,7 @@ export function DataPage({ ctx }: { ctx: Ctx }) {
   const Row = ({ k, v }: { k: string; v: string }) => <div className="flex justify-between gap-3 border-b border-line/60 py-1.5 text-[13px]"><span className="text-mute">{k}</span><span className="num text-right">{v}</span></div>
   return (
     <main className="space-y-4 p-4">
-      <div><h1 className="text-[22px] font-semibold">{t('ds_title')}</h1><p className="text-[13px] text-mute">{t('ds_sub')}</p></div>
+      <h1 className="text-[22px] font-semibold">{t('ds_title')}</h1>
 
       <div className="grid gap-4 xl:grid-cols-2">
         <section className="panel">
@@ -32,22 +32,20 @@ export function DataPage({ ctx }: { ctx: Ctx }) {
                 <Row k={t('ts_rated')} v={`${o.rated_power_mw} ${t('mw')}`} />
                 <Row k={t('ts_hub')} v={`${o.tower_height_m} м`} />
                 <Row k={t('ts_rotor')} v={`${o.rotor_diameter_m} м`} />
-                <Row k="Модель" v={o.turbine_model ?? '—'} />
-                <Row k={t('ts_coord')} v={`${o.latitude.toFixed(6)}, ${o.longitude.toFixed(6)}`} />
+                <Row k={t('ds_maker')} v={t('ds_maker_v')} />
               </div>))}
           </div>
-          <p className="mt-2 text-[12px] text-mute">{t('ds_norm', { mw: ctx.ratedOf('STATION') })}</p>
         </section>
 
         <section className="panel">
           <h2 className="mb-2 flex items-center gap-2 text-[15px] font-semibold"><Database size={16} className="text-blue" />{t('ds_sources')}
-            {src.data && <span className="mono ml-auto text-mute">{src.data.storage}</span>}</h2>
+            </h2>
           {src.error ? <p className="text-[13px] text-bad">{src.error}</p> : !src.data ? <div className="shimmer h-40 rounded-lg" /> : (
             <ul className="space-y-2">
               {src.data.items.map((i) => (
                 <li key={i.name} className="flex items-start gap-2.5 border-b border-line/60 pb-2">
                   {i.status === 'ok' ? <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-good" /> : <CircleSlash size={16} className="mt-0.5 shrink-0 text-warn" />}
-                  <div className="min-w-0 flex-1"><div className="text-[13px] font-medium">{i.name}</div><div className="text-[12px] text-mute">{i.source}</div></div>
+                  <div className="min-w-0 flex-1 text-[13px] font-medium">{i.name} <span className="font-normal text-mute">· {i.source}</span></div>
                   <div className={`num max-w-[45%] text-right text-[12px] ${i.status === 'ok' ? '' : 'text-warn'}`}>{i.detail}</div>
                 </li>))}
             </ul>)}
@@ -77,7 +75,6 @@ export function DataPage({ ctx }: { ctx: Ctx }) {
                 {an.data.examples.map((e, i) => <li key={i} className="flex justify-between border-b border-line/50 py-1"><span>{e.turbine === 'T1' ? t('t1') : t('t2')} · {e.start}</span><span className="text-warn">{e.hours} {t('h_short')}</span></li>)}
                 {!an.data.examples.length && <li className="text-mute">—</li>}
               </ul>
-              <p className="mt-2 text-[12px] text-mute">{an.data.rules}</p>
             </div>
           </div>)}
       </section>

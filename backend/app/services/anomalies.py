@@ -37,9 +37,9 @@ def find_anomalies() -> dict:
         stuck_run = d["power"].diff().abs().lt(1e-4) & d["power"].between(0.02, 0.97) & (d["wind_speed"] > 3)  # не штиль и не номинал
         no_wind = (d["power"] > 0.2) & (d["wind_speed"] < 2)
         kinds = {
-            "downtime": ("Простой или ограничение: мощность < 1 % Pном при ветре > 5 м/с", _episodes(down, d["time"])),
-            "stuck": ("Залипание: одинаковая мощность ≥ 6 ч подряд", _episodes(stuck_run, d["time"], 6)),
-            "no_wind": ("Мощность > 20 % Pном при ветре < 2 м/с", _episodes(no_wind, d["time"])),
+            "downtime": ("Простои (ветер есть, мощности нет)", _episodes(down, d["time"])),
+            "stuck": ("Залипание датчика (6+ ч одно значение)", _episodes(stuck_run, d["time"], 6)),
+            "no_wind": ("Мощность без ветра", _episodes(no_wind, d["time"])),
         }
         for key, (title, eps) in kinds.items():
             hours = sum(n for _, n in eps)
@@ -49,10 +49,10 @@ def find_anomalies() -> dict:
     g = gaps_df()
     for t in config.TURBINES:
         gt = g[g["turbine"] == t.id]
-        rows.append({"turbine": t.id, "kind": "gaps", "title": "Пропуски данных (wind_actuals_gaps)", "episodes": int(len(gt)),
+        rows.append({"turbine": t.id, "kind": "gaps", "title": "Пропуски в данных", "episodes": int(len(gt)),
                      "hours": int(round(float(gt["missing_hours"].sum())))})
     return {"summary": rows, "examples": sorted(examples, key=lambda e: -e["hours"])[:10],
-            "rules": "Простои исключаются из обучения кривой мощности, но остаются в оценке качества."}
+            "rules": "Простои не используются при обучении модели."}
 
 
 def sources() -> dict:
@@ -73,17 +73,17 @@ def sources() -> dict:
     return {
         "storage": db.backend_name(),
         "items": [
-            {"name": "История турбины 1", "source": "CSV организаторов → wind_actuals (object_id=1)", "status": "ok",
-             "detail": f"{int((h.turbine == 'T1').sum()):,} ч · 10-минутные данные 11.03.2023–31.01.2026".replace(",", " ")},
-            {"name": "История турбины 2", "source": "CSV организаторов → wind_actuals (object_id=2)", "status": "ok",
-             "detail": f"{int((h.turbine == 'T2').sum()):,} ч · 10-минутные данные 11.03.2023–31.01.2026".replace(",", " ")},
-            {"name": "Архивные прогнозы погоды", "source": "Open-Meteo Previous Model Runs (прогоны за 1 и 2 суток до часа)", "status": "ok",
-             "detail": f"{len(cache)} месяцев в кеше · данные с 16.02.2024 · {hours_ok:,} ч с ветром на 100 м".replace(",", " ")},
-            {"name": "Справочник объектов", "source": "wind_objects (дата-инженер) · паспорт Samruk-Green", "status": "ok",
-             "detail": f"{len(store.objects())} турбины · Goldwind GW109/2500 · 2,5 МВт"},
-            {"name": "Отчёт о пропусках", "source": "wind_actuals_gaps (дата-инженер)", "status": "ok",
+            {"name": "История турбины 1", "source": "организаторы", "status": "ok",
+             "detail": f"{int((h.turbine == 'T1').sum()):,} ч · 03.2023–01.2026".replace(",", " ")},
+            {"name": "История турбины 2", "source": "организаторы", "status": "ok",
+             "detail": f"{int((h.turbine == 'T2').sum()):,} ч · 03.2023–01.2026".replace(",", " ")},
+            {"name": "Прогнозы погоды", "source": "Open-Meteo, архив", "status": "ok",
+             "detail": f"с 02.2024 · {hours_ok:,} ч".replace(",", " ")},
+            {"name": "Паспорт турбин", "source": "Samruk-Green", "status": "ok",
+             "detail": f"{len(store.objects())} турбины по 2,5 МВт"},
+            {"name": "Отчёт о пропусках", "source": "дата-инженер", "status": "ok",
              "detail": f"{len(gaps_df())} пропусков"},
-            {"name": "Фактическая генерация февраля", "source": "организаторы", "status": "missing",
-             "detail": "не предоставлена — февраль прогнозируется без оценки"},
+            {"name": "Факт за февраль", "source": "организаторы", "status": "missing",
+             "detail": "не предоставлен"},
         ],
     }

@@ -1,6 +1,6 @@
 import { Download, Loader2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Area, Bar, BarChart, Cell, ComposedChart, CartesianGrid, LabelList, Line, ReferenceArea, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, Cell, ComposedChart, CartesianGrid, LabelList, Line, ReferenceArea, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { ForecastRow, TurbineId, WeatherPoint } from '../api/types'
 import { devTone, fmt, TOL_PCT } from '../lib/calc'
 import { ddmm, hhmm, ruDate } from '../lib/format'
@@ -133,8 +133,6 @@ export function ChartPanel(p: Props) {
                   <YAxis domain={[0, p.rated]} tick={{ fill: c.mute, fontSize: 11, fontFamily: 'ui-monospace, monospace' }} tickLine={false} axisLine={false} width={44}
                     label={{ value: t('mw'), angle: -90, position: 'insideLeft', fill: c.mute, fontSize: 10 }} />
                   <Tooltip content={<Tip c={c} t={t} />} cursor={{ stroke: c.mute, strokeDasharray: '3 3' }} isAnimationActive={false} />
-                  <Area dataKey="hi" stroke="none" fill={c.blue} fillOpacity={0.06} isAnimationActive={false} />
-                  <Area dataKey="lo" stroke="none" fill={c.bg} fillOpacity={1} isAnimationActive={false} />
                   {cbPrev && p.prev.map((_, k) => <Line key={k} dataKey={`prev${k}`} stroke={c.curve} strokeOpacity={0.35 + 0.5 / (k + 1)} strokeWidth={1} strokeDasharray="2 4" dot={false} type="monotone" isAnimationActive={false} />)}
                   <Line dataKey="fc" stroke={c.blue} strokeWidth={2} strokeDasharray="6 4" dot={false} type="monotone" isAnimationActive animationDuration={900}
                     activeDot={{ r: 4, fill: c.blue, stroke: c.panel, strokeWidth: 2 }}>

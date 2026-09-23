@@ -8,7 +8,7 @@ import { TestPeriodPanel } from '../features/TestPeriodPanel'
 import { useAsync } from '../hooks/useAsync'
 import type { Ctx } from '../lib/ctx'
 import { pct } from '../lib/format'
-import { useT } from '../lib/i18n'
+import { bucketLabel, useT } from '../lib/i18n'
 
 function Section({ title, hint, children, className = '' }: { title: string; hint?: string; children: React.ReactNode; className?: string }) {
   return (
@@ -47,7 +47,7 @@ export function AnalyticsPage({ ctx }: { ctx: Ctx }) {
               <tbody>
                 {(metrics.data?.by_turbine_and_horizon ?? []).map((r) => (
                   <tr key={`${r.turbine}${r.bucket}`} className={`border-b border-line/60 ${r.turbine === turbine ? 'bg-blue/10' : ''}`}>
-                    <td className="px-3 py-2">{name(r.turbine ?? '')}</td><td>{r.bucket}</td>
+                    <td className="px-3 py-2">{name(r.turbine ?? '')}</td><td>{bucketLabel(r.bucket, t)}</td>
                     <td className="px-3 text-right">{r.mae.toFixed(3)}</td><td className="px-3 text-right">{r.rmse.toFixed(3)}</td>
                     <td className="px-3 text-right text-mute">{r.mae_base?.toFixed(3) ?? '—'}</td>
                     <td className="px-3 text-right font-semibold text-good">{pct(r.skill)}</td>
@@ -65,7 +65,7 @@ export function AnalyticsPage({ ctx }: { ctx: Ctx }) {
           <div className="grid grid-cols-2 gap-3">
             {cov.map((c, i) => (
               <div key={c.bucket} className="panel pop" style={{ animationDelay: `${i * 80}ms` }}>
-                <div className="text-[12px] text-mute">{c.bucket}</div>
+                <div className="text-[12px] text-mute">{bucketLabel(c.bucket, t)}</div>
                 <div className={`num font-mono text-[28px] font-bold ${Math.abs(c.coverage - 0.8) <= 0.07 ? 'text-good' : 'text-warn'}`}>{Math.round(c.coverage * 100)}%</div>
                 <div className="text-[11px] text-mute">{t('cov_width')} {(c.width * ratedOf(turbine)).toFixed(1)} {t('mw')}</div>
               </div>))}
@@ -79,7 +79,7 @@ export function AnalyticsPage({ ctx }: { ctx: Ctx }) {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <Section title={t('p_quality')} hint="wind_actuals_gaps"><QualityPanel q={quality.data} error={quality.error} bare /></Section>
+        <Section title={t('p_quality')} hint={t('an_data_h')}><QualityPanel q={quality.data} error={quality.error} bare /></Section>
         <Section title={t('p_feb')} hint={t('an_test_h')}><TestPeriodPanel points={timeline.data ?? []} rated={ratedOf(turbine)} error={timeline.error} bare /></Section>
       </div>
     </main>

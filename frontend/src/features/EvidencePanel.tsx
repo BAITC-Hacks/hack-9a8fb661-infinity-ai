@@ -1,6 +1,6 @@
 import { CheckCircle2, XCircle } from 'lucide-react'
 import type { Experiments } from '../api/types'
-import { useT } from '../lib/i18n'
+import { bucketLabel, useT } from '../lib/i18n'
 
 const USED = 'boost'
 
@@ -18,7 +18,7 @@ export function EvidencePanel({ e }: { e: Experiments | null }) {
         <thead className="text-[10px] uppercase tracking-wider text-mute">
           <tr>
             <th className="border-b border-line px-3 py-2 text-left font-medium">{t('ev_variant')}</th>
-            {['1-24h', '25-48h'].map((b) => <th key={b} className="border-b border-line px-3 py-2 text-right font-medium">MAE {b}</th>)}
+            {['1-24h', '25-48h'].map((b) => <th key={b} className="border-b border-line px-3 py-2 text-right font-medium">MAE {bucketLabel(b, t)}</th>)}
             <th className="border-b border-line px-3 py-2 text-right font-medium">{t('ev_vs')}</th>
             <th className="border-b border-line px-3 py-2 text-right font-medium" />
           </tr>

@@ -72,7 +72,7 @@ export function MapPage({ ctx }: { ctx: Ctx }) {
                   </div>
                   <Row k={t('k_peak')} v={`${live.peakMw.toFixed(2)} ${t('mw')} · ${hhmm(live.peakT)}`} />
                   <Row k={t('k_energy')} v={`${live.e48.toFixed(1)} ${t('mwh')}`} />
-                  <Row k="status" v={live.status === 'ok' ? t('why_status_ok') : t('why_status_low')} tone={live.status === 'ok' ? 'text-good' : 'text-warn'} />
+                  <Row k={t('status')} v={live.status === 'ok' ? t('why_status_ok') : t('why_status_low')} tone={live.status === 'ok' ? 'text-good' : 'text-warn'} />
                 </div>)}
               <div className="mt-3">
                 <div className="lbl mb-1">{obj.turbine_model}</div>

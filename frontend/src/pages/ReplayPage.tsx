@@ -15,7 +15,7 @@ const days = (() => { const out: string[] = []; for (let d = START; d <= END; d 
 
 /** Историческое воспроизведение февраля: шаг за шагом, как если бы прогноз делался в прошлом. */
 export function ReplayPage({ ctx }: { ctx: Ctx }) {
-  const { t } = useT()
+  const { t, lang } = useT()
   const c = usePalette()
   const { ratedOf, tick } = ctx
   const [idx, setIdx] = useState(days.indexOf(ctx.issueDate) >= 0 ? days.indexOf(ctx.issueDate) : 0)
@@ -51,14 +51,14 @@ export function ReplayPage({ ctx }: { ctx: Ctx }) {
   const decisions = [...(log.data ?? [])].reverse().slice(0, 6).map((e) => {
     const r = (e.result ?? {}) as Record<string, number | string | boolean>
     const m: Record<string, [React.ReactNode, string, string]> = {
-      fetch_forecast: [<CloudDownload size={16} />, 'Новый погодный выпуск', `48 ч, ветер ${Number(r.mean_wind_100m ?? 0).toFixed(1)} м/с`],
-      prepare_features: [<FileCheck2 size={16} />, 'Проверка данных', Number(r.max_fact_gap_h ?? 0) > 0 ? `пропуск ${r.max_fact_gap_h} ч` : 'пропусков нет'],
-      train_model: [<Settings2 size={16} />, 'Обучение модели', 'на данных до момента выпуска'],
-      predict: [<CheckCircle2 size={16} />, 'Прогноз рассчитан', 'обе турбины · 48 часов'],
-      analyze: [<CheckCircle2 size={16} />, 'Проверки результата', `среднее ${Math.round(Number(r.mean_p ?? 0) * 100)}% Pном`],
-      replan: [<RefreshCw size={16} />, 'Перепланирование', e.reason ?? ''],
-      report: [<FileCheck2 size={16} />, 'Сводка сохранена', ''],
-      evaluate: [<CheckCircle2 size={16} />, 'Оценка против факта', ''],
+      fetch_forecast: [<CloudDownload size={16} />, t('dc_weather'), t('dc_weather_s', { w: Number(r.mean_wind_100m ?? 0).toFixed(1) })],
+      prepare_features: [<FileCheck2 size={16} />, t('dc_check'), Number(r.max_fact_gap_h ?? 0) > 0 ? t('dc_gap', { h: String(r.max_fact_gap_h) }) : t('dc_nogap')],
+      train_model: [<Settings2 size={16} />, t('dc_train'), t('dc_train_s')],
+      predict: [<CheckCircle2 size={16} />, t('dc_pred'), t('dc_pred_s')],
+      analyze: [<CheckCircle2 size={16} />, t('dc_an'), t('dc_an_s', { m: Math.round(Number(r.mean_p ?? 0) * 100) })],
+      replan: [<RefreshCw size={16} />, t('dc_replan'), e.reason ?? ''],
+      report: [<FileCheck2 size={16} />, t('dc_rep'), ''],
+      evaluate: [<CheckCircle2 size={16} />, t('dc_eval'), ''],
     }
     const [icon, title, sub] = m[e.tool] ?? [<AlertTriangle size={16} />, e.tool, e.reason ?? '']
     return { id: e.id, ts: e.ts.slice(11, 16), icon, title, sub: e.reason && e.tool !== 'replan' ? e.reason : sub, warn: !!e.reason }
@@ -77,7 +77,7 @@ export function ReplayPage({ ctx }: { ctx: Ctx }) {
         <div className="flex flex-wrap items-center gap-4">
           <div>
             <div className="lbl">{t('rp_moment')}</div>
-            <div key={issue} className="pop text-[26px] font-semibold">{new Date(`${issue}T00:00:00Z`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}</div>
+            <div key={issue} className="pop text-[26px] font-semibold">{new Date(`${issue}T00:00:00Z`).toLocaleDateString(lang === 'kk' ? 'kk-KZ' : 'ru-RU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}</div>
             <div className="mono text-mute">05:00 · UTC+5 (00:00 UTC)</div>
           </div>
           <div className="ml-auto flex items-center gap-2">
@@ -174,8 +174,8 @@ export function ReplayPage({ ctx }: { ctx: Ctx }) {
               return (
                 <tr key={d} className={`pop border-b border-line/60 ${d === issue ? 'bg-blue/10' : ''}`}>
                   <td className="px-3 py-2">{ruDate(d)}.2026, 05:00</td>
-                  <td className="px-3">{ruDate(shift(d, -1))} (+1…24 ч) · {ruDate(shift(d, -2))} (+25…48 ч)</td>
-                  <td className="px-3">48 ч</td><td className="px-3">2 / 2</td>
+                  <td className="px-3">{ruDate(shift(d, -1))} (+1…24 {t('h_short')}) · {ruDate(shift(d, -2))} (+25…48 {t('h_short')})</td>
+                  <td className="px-3">48 {t('h_short')}</td><td className="px-3">2 / 2</td>
                   <td className="px-3">{r ? <span className={`flex items-center gap-1.5 ${r.status === 'ok' ? 'text-good' : 'text-warn'}`}><CheckCircle2 size={14} />{r.status === 'ok' ? t('rp_ready') : t('rp_low')}</span> : '—'}</td>
                 </tr>)
             })}

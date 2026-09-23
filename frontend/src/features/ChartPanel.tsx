@@ -71,13 +71,13 @@ export function ChartPanel(p: Props) {
     <section className="panel !p-0">
       <div className="flex h-[44px] items-center gap-3 border-b border-line bg-sunk px-3">
         <span className="text-[14px] font-semibold">{t('k_forecast')} · {crumbs[crumbs.length - 1]}</span>
-        <span className="mono text-mute">{t('f_issue')} {ruDate(p.issueDate)} · +{p.horizon} h</span>
+        <span className="mono text-mute">{t('f_issue')} {ruDate(p.issueDate)} · +{p.horizon} {t('h_short')}</span>
         <span className="mono ml-auto hidden text-mute lg:inline">
           {t('tol', { tol: TOL_PCT })} · {iPeak >= 0 ? t('peak', { mw: fcs[iPeak].toFixed(2), t: hhmm(String(data[iPeak].time)) }) : '—'}
         </span>
         {p.loading && <Loader2 size={14} className="animate-spin text-mute" />}
         {zoom && <button onClick={() => setZoom(null)} className="rounded-md border border-line px-2 py-1 text-[11px] text-mute hover:text-text">{t('reset_zoom')}</button>}
-        <button onClick={exportCsv} className="flex items-center gap-1 rounded-md border border-line px-2 py-1 text-[11px] text-mute hover:border-blue hover:text-text"><Download size={12} />{t('export')}</button>
+        <button onClick={exportCsv} className="flex items-center gap-1 rounded-md border border-line px-2 py-1 text-[11px] text-mute hover:border-blue hover:text-text"><Download size={12} />{t('download_csv')}</button>
       </div>
 
       {p.error ? <State color="text-bad">{t('err')}: {p.error}</State>
@@ -138,10 +138,10 @@ export function ChartPanel(p: Props) {
                   <Line dataKey="fc" stroke={c.blue} strokeWidth={2} strokeDasharray="6 4" dot={false} type="monotone" isAnimationActive animationDuration={900}
                     activeDot={{ r: 4, fill: c.blue, stroke: c.panel, strokeWidth: 2 }}>
                     <LabelList dataKey="lblWind" content={(pr) => <Badge x={pr.x as number} y={pr.y as number} value={pr.value as string} color={c.blue} />} />
+                    <LabelList dataKey="lblTemp" content={(pr) => <Badge x={pr.x as number} y={(pr.y as number) + 30} value={pr.value as string} color={c.warn} />} />
                   </Line>
                   <Line dataKey="fact" stroke={c.data} strokeWidth={2} dot={false} type="monotone" connectNulls={false} isAnimationActive animationDuration={1000}
                     activeDot={{ r: 4, fill: c.data, stroke: c.panel, strokeWidth: 2 }}>
-                    <LabelList dataKey="lblTemp" content={(pr) => <Badge x={pr.x as number} y={pr.y as number} value={pr.value as string} color={c.warn} />} />
                   </Line>
                   {sel && <ReferenceArea x1={Math.min(sel.a, sel.b)} x2={Math.max(sel.a, sel.b)} fill={c.blue} fillOpacity={0.1} />}
                 </ComposedChart>

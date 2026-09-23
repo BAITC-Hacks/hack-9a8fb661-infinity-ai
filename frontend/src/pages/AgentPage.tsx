@@ -7,7 +7,7 @@ import { PipelineRail } from '../features/PipelineRail'
 import { useAgentStream, type Msg, type Step } from '../hooks/useAgentStream'
 import { useAsync } from '../hooks/useAsync'
 import type { Ctx } from '../lib/ctx'
-import { useT } from '../lib/i18n'
+import { llmLabel, useT } from '../lib/i18n'
 
 interface Conv { id: string; session: string; title: string; updated: number; msgs: Msg[] }
 const KEY = 'infinity-chats'
@@ -51,7 +51,7 @@ export function AgentPage({ ctx }: { ctx: Ctx }) {
       <section className="panel flex min-h-0 flex-col !p-0">
         <div className="flex h-[40px] items-center gap-2 border-b border-line bg-sunk px-3"><HardHat size={15} className="text-blue" />
           <span className="truncate text-[13px] font-semibold">{conv.title || t('chat_page')}</span>
-          <span className="mono ml-auto hidden text-mute md:inline">{llm.replace('rules', 'правила')}</span></div>
+          <span className="mono ml-auto hidden text-mute md:inline">{llmLabel(llm, t)}</span></div>
         <ChatPane key={conv.id} conv={conv} ctx={ctx} onSave={save} onLive={setLive} />
       </section>
 

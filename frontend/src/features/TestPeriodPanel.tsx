@@ -13,7 +13,7 @@ export function TestPeriodPanel({ points, rated, error, bare }: { points: Timeli
   return (
     <section className="panel rise" style={{ animationDelay: '500ms' }}>
       <div className="mb-3 flex items-baseline justify-between"><h2 className={`text-[16px] font-semibold ${bare ? "hidden" : ""}`}>{t('p_feb')}</h2>
-        <a href={api.exportCsvUrl} className="rounded-md border border-line px-2 py-1 text-[11px] text-blue hover:border-blue">forecasts.csv</a></div>
+        <a href={api.exportCsvUrl} className="rounded-md border border-line px-2 py-1 text-[11px] text-blue hover:border-blue">{t('download_csv')}</a></div>
       {error ? <p className="text-[14px] text-bad">{t('err')}: {error}</p> : !data.length ? <p className="py-6 text-[14px] text-mute">{t('no_feb')}</p> : (
         <div className="h-52">
           <ResponsiveContainer>

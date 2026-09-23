@@ -26,9 +26,9 @@ export function QualityPanel({ q, error, bare }: { q: QualitySummary | null; err
                 <CartesianGrid stroke={c.line} strokeDasharray="4 4" vertical={false} />
                 <XAxis dataKey="month" tickFormatter={(m: string) => m.slice(2).replace('-', '.')} tick={{ fill: c.mute, fontSize: 10 }} tickLine={false} axisLine={{ stroke: c.line }} interval={2} />
                 <YAxis tick={{ fill: c.mute, fontSize: 10 }} tickLine={false} axisLine={false} />
-                <Tooltip isAnimationActive={false} cursor={{ fill: `${c.blue}14` }} contentStyle={{ background: c.panel, border: `1px solid ${c.line}`, borderRadius: 8, fontSize: 12, color: c.text }} formatter={(v) => `${Number(v).toFixed(0)} h`} />
-                <Bar dataKey="T1" stackId="a" fill={c.blue} isAnimationActive animationDuration={800} />
-                <Bar dataKey="T2" stackId="a" fill={c.curve} isAnimationActive animationDuration={800} />
+                <Tooltip isAnimationActive={false} cursor={{ fill: `${c.blue}14` }} contentStyle={{ background: c.panel, border: `1px solid ${c.line}`, borderRadius: 8, fontSize: 12, color: c.text }} formatter={(v) => `${Number(v).toFixed(0)} ${t('h_short')}`} />
+                <Bar dataKey="T1" name={t('t1')} stackId="a" fill={c.blue} isAnimationActive animationDuration={800} />
+                <Bar dataKey="T2" name={t('t2')} stackId="a" fill={c.curve} isAnimationActive animationDuration={800} />
               </BarChart>
             </ResponsiveContainer>
           </div>

@@ -131,6 +131,7 @@ MAE — в долях номинальной мощности. Факт по ф�
 ## Использованные внешние материалы
 - Данные: исторические CSV организаторов HackAlem AI (две турбины, 10-минутный шаг); выгрузка `wind_actuals` и справочник `wind_objects` (паспорт: Goldwind GW109/2500, 2,5 МВт, башня 80 м — [Samruk-Green, ВЭС «Нурлы»](https://samruk-green.kz/index.php/ru/projects/1047-20210219-133650)) подготовлены дата-инженером команды.
 - Погода: [Open-Meteo](https://open-meteo.com/) Previous Model Runs API (CC BY 4.0), без ключа.
+- Карта: тайлы [OpenStreetMap](https://www.openstreetmap.org/) (ODbL), библиотеки Leaflet и three.js (3D-сцена турбин).
 - LLM (опционально, на NVIDIA GPU через Brev): [Qwen/Qwen3.8-27B-FP8](https://huggingface.co/Qwen/Qwen3.8-27B-FP8) (Apache 2.0), сервер vLLM — см. `gpu/README.md`.
 - Библиотеки: см. `backend/requirements.txt`, `frontend/package.json`.
 - AI-инструменты разработки: Claude Code, Codex.

@@ -15,12 +15,12 @@ export function WhyCard({ rows, weather, run, log }: { rows: ForecastRow[]; weat
   const summary = (run?.summary ?? '').replace(/\[mock\]\s*/g, '')
   const low = run?.status === 'low_confidence'
   return (
-    <section className="panel rise">
+    <section className="panel rise self-start">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-[16px] font-semibold">{t('why')}</h2>
         <span className="mono num text-mute">{t('why_point')} · {ddmm(peak.target_time)} {hhmm(peak.target_time)}</span>
       </div>
-      <div className="grid gap-4 md:grid-cols-[1fr_1.4fr]">
+      <div className="grid gap-4">
         <div className="grid grid-cols-2 gap-2">
           <Fact icon={<Wind size={14} />} k={t('why_wind')} v={`${fmt(wx?.wind_speed_100m, 1)} м/с`} />
           <Fact icon={<Wind size={14} />} k={t('why_gust')} v={`${fmt(wx?.wind_gusts_10m, 1)} м/с`} />

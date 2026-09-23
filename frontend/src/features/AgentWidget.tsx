@@ -6,6 +6,7 @@ import { useT } from '../lib/i18n'
 /** Агент-инженер в правом нижнем углу: обычный чат, шаги работы — человеческим языком. */
 export function AgentWidget({ onChanged }: { onChanged: () => void }) {
   const [open, setOpen] = useState(false)
+  useEffect(() => { const h = () => setOpen(true); window.addEventListener('open-agent', h); return () => window.removeEventListener('open-agent', h) }, [])
   const [q, setQ] = useState('')
   const { t, d, lang } = useT()
   const { msgs, busy, ask } = useAgentStream(d, lang, onChanged)

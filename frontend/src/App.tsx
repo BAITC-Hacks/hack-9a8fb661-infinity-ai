@@ -10,9 +10,8 @@ import { DailyErrorPanel } from './features/DailyErrorPanel'
 import { KpiStrip } from './features/KpiStrip'
 import { PowerCurvePanel } from './features/PowerCurvePanel'
 import { QualityPanel } from './features/QualityPanel'
-import { StationList } from './features/StationList'
+import { SiteMap } from './features/SiteMap'
 import { TestPeriodPanel } from './features/TestPeriodPanel'
-import { Tree } from './features/Tree'
 import { WhyCard } from './features/WhyCard'
 import { useAsync } from './hooks/useAsync'
 import { kpis } from './lib/calc'
@@ -43,11 +42,11 @@ export default function App() {
     ? (objs.length ? objs.reduce((a, o) => a + (o.rated_power_mw ?? 2.5), 0) : 5)
     : objs.find((o) => o.object_id === (id === 'T1' ? 1 : 2))?.rated_power_mw ?? 2.5
   const rated = ratedOf(turbine)
-  const byTurbine = useMemo(() => Object.fromEntries((all.data ?? []).map((f, i) => [(['STATION', 'T1', 'T2'] as TurbineId[])[i], f.rows])), [all.data])
   const current = (all.data ?? [])[(['STATION', 'T1', 'T2'] as TurbineId[]).indexOf(turbine)] ?? null
   const rows = useMemo(() => (current?.rows ?? []).filter((r) => r.lead_hours <= horizon), [current, horizon])
   const band = useCallback((lead: number) => metrics.data?.by_turbine_and_horizon.find((m) => m.turbine === turbine && m.bucket === (lead <= 24 ? '1-24h' : '25-48h'))?.mae ?? 0.15, [metrics.data, turbine])
   const k = kpis(rows, rated)
+  const peakWx = useMemo(() => (weather.data ?? []).find((w) => w.time === k.peakTime) ?? null, [weather.data, k.peakTime])
 
   const run = async () => {
     setRunning(true)
@@ -59,20 +58,19 @@ export default function App() {
 
   return (
     <div className="min-h-full pl-14">
-      <Sidebar turbine={turbine} onTurbine={setTurbine} onRun={run} running={running} runMsg={runMsg} />
+      <Sidebar onRun={run} running={running} runMsg={runMsg} onAgent={() => window.dispatchEvent(new Event('open-agent'))} />
       <TopBar ctx={ctx} />
       <FilterBar turbine={turbine} onTurbine={setTurbine} horizon={horizon} onHorizon={setHorizon} issueDate={issueDate} onIssue={setIssueDate} view={view} onView={setView} />
       <KpiStrip k={k} />
 
       <main className="space-y-4 p-4">
-        <div className="grid gap-4 xl:grid-cols-[300px_1fr_360px]">
-          <Tree objects={objs} turbine={turbine} onTurbine={setTurbine} />
+        <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
           <ChartPanel rows={rows} weather={weather.data ?? []} rated={rated} turbine={turbine} issueDate={issueDate} horizon={horizon}
             view={view} loading={all.loading} error={all.error} band={band} />
-          <StationList objects={objs} byTurbine={byTurbine} horizon={horizon} turbine={turbine} onTurbine={setTurbine} />
+          <WhyCard rows={rows} weather={weather.data ?? []} run={current?.run ?? null} log={log.data ?? []} />
         </div>
 
-        <WhyCard rows={rows} weather={weather.data ?? []} run={current?.run ?? null} log={log.data ?? []} />
+        <SiteMap objects={objs} wind={peakWx?.wind_speed_100m ?? null} direction={peakWx?.wind_direction_100m ?? null} power={k.peakMw == null ? null : k.peakMw / rated} />
 
         <div className="grid gap-4 min-[1000px]:grid-cols-3">
           <PowerCurvePanel data={curve.data} error={curve.error} />

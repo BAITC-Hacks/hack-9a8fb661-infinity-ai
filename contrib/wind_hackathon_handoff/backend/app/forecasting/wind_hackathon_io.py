@@ -68,6 +68,16 @@ class WindStore:
         # Validate every object first; one insert publishes the complete batch.
         self.client.insert_json_each_row("wind_power_forecasts", rows)
 
+    def write_weather(self, rows):
+        self.client.insert_json_each_row("wind_weather_forecasts", rows)
+
+    def forecast_count(self, run_id):
+        rows = self.client.query_json_each_row(
+            "SELECT count() AS rows FROM wind_power_forecasts FINAL WHERE run_id = {run:UUID}",
+            parameters={"run": run_id},
+        )
+        return int(rows[0]["rows"])
+
 
 def train(
     store: WindStore,
@@ -106,6 +116,7 @@ def train(
         "sklearn_version": sklearn.__version__,
         "created_at": stamp(pd.Timestamp.now(tz="UTC")),
         "objects": objects,
+        "archive_kinds": sorted(set(weather.get("archive_kind", pd.Series(["unspecified"])))),
         "models": models,
     }
     artifact.parent.mkdir(parents=True, exist_ok=True)
@@ -113,6 +124,7 @@ def train(
     logger.info("wind_training_finished version=%s objects=%s", bundle["model_version"], sorted(models))
     return {
         "model_version": bundle["model_version"],
+        "archive_kinds": bundle["archive_kinds"],
         "validation": {oid: model.validation for oid, model in models.items()},
     }
 
@@ -157,6 +169,9 @@ def forecast(store: WindStore, bundle: dict, *, origin, horizon_hours=48, persis
             "weather_provider": bundle["provider"],
             "weather_model": bundle["weather_model"],
             "weather_issued_at": stamp(run.issued_at),
+            "weather_available_at": stamp(run.available_at),
+            "weather_source_sha256": run.get("source_sha256", ""),
+            "weather_archive_kind": run.get("archive_kind", "unspecified"),
             "actuals_cutoff": bundle["trained_until"],
             "created_at": created_at,
         }

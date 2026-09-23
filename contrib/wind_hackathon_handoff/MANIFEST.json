@@ -8,12 +8,12 @@
     "sha256": "9ae9f8375b10c542324d6fd9e967f304b277382f642dd5f6fcd630a4da15dda0"
   },
   "PROMPT_FOR_CODEX.md": {
-    "bytes": 15690,
-    "sha256": "88d9f92ad3b9679ae135d9e7b80e9dd5daee4f90981c3d269ee4bfa41cf2d4f9"
+    "bytes": 11307,
+    "sha256": "0113e9b6cf55f5f129e0ede2a55207f6060f5434a5e49790d5a73794c74fb348"
   },
   "README.md": {
-    "bytes": 11064,
-    "sha256": "326d75da67a9a7ff11ac618e971981410a4a4a27c38432def07cbb7ca704a549"
+    "bytes": 8822,
+    "sha256": "0262e5d9e7d3f719079beda000cffab65b424282ec8173d0ce72ffff22ed8111"
   },
   "backend/__init__.py": {
     "bytes": 2,
@@ -39,21 +39,41 @@
     "bytes": 15766,
     "sha256": "6f6e676d48b7706d7d09f26834fa1761316fbfe157a23258210559fb4925d987"
   },
+  "backend/app/forecasting/wind_hackathon_agent.py": {
+    "bytes": 12396,
+    "sha256": "04fc5acc6223be0b1fe4248d7377b4762f126571b28debe40f70ae5f4f366e9a"
+  },
   "backend/app/forecasting/wind_hackathon_io.py": {
-    "bytes": 6553,
-    "sha256": "e4edc50c34ca9511abc316c8eed9cc42ed57680dbbf3b7e21174d48b3b2cfd5e"
+    "bytes": 7280,
+    "sha256": "bb882a26ce932d7b0b7c1d70f9a79fb49d5425c5880c967846196390b7226e9c"
+  },
+  "backend/app/forecasting/wind_hackathon_workflow.py": {
+    "bytes": 6203,
+    "sha256": "9410fbb7971a207304d667cc88583d17402b29b16e3378b714380aa85b5357b9"
+  },
+  "backend/app/forecasting/wind_noaa_archive.py": {
+    "bytes": 8111,
+    "sha256": "22204ad9ade818c18da39f36bc4a64bf49bec6f4cd6f87191ef7c52a0d2af0c3"
+  },
+  "backend/app/forecasting/wind_weather_archive.py": {
+    "bytes": 8782,
+    "sha256": "7b7aa026ac0c5eef62a160118aceb434a11e53ea4cc2cbb9e670394de32af752"
+  },
+  "backend/requirements-wind-noaa.txt": {
+    "bytes": 122,
+    "sha256": "238301c795e3a9ff014e5ad9b7abcd428d886232c34554fba886341c230fab1f"
   },
   "backend/requirements-wind.txt": {
-    "bytes": 232,
-    "sha256": "a498bb09c01bd7308df0045a6605ac5e92d77987a6452cb049160c12419c04ff"
+    "bytes": 250,
+    "sha256": "b6075553b5ff58402bab631e22e94debd15dfbed81d5b9222e079ac71b88fb5a"
   },
   "backend/scripts/__init__.py": {
     "bytes": 56,
     "sha256": "38c8593072efeb2393a1b90bbb762d75e2f68ef6d73eaf34c4b0bb5a13d9e322"
   },
   "backend/scripts/run_wind_hackathon.py": {
-    "bytes": 4431,
-    "sha256": "c9d7f0b1eae30d625de9dafc57e1a5a7a4b74f9ee21f229a46051d90cbdb4901"
+    "bytes": 12546,
+    "sha256": "de87ac7f05bc5e0f027e00b38ef128cfea73d5d85d554f51bee1ed61e6fa582a"
   },
   "backend/tests/__init__.py": {
     "bytes": 0,
@@ -62,6 +82,10 @@
   "backend/tests/test_wind_hackathon.py": {
     "bytes": 7464,
     "sha256": "310d15ce4c81bc5ec66d9c366db424b362ac364fff5358f648a2ed543e6d0c2f"
+  },
+  "backend/tests/test_wind_hackathon_agent.py": {
+    "bytes": 10532,
+    "sha256": "f3b04ec75bf984394974c4c5531f40da4b277689080bbbc3498cca53698b8d8d"
   },
   "data/source/turbine_1.csv": {
     "bytes": 6049266,
@@ -84,19 +108,23 @@
     "sha256": "61e014db851f534385406894e98a9007635e52e00b8fcc65671e8f3daadbd66c"
   },
   "db/clickhouse/wind_hackathon.sql": {
-    "bytes": 3770,
-    "sha256": "c48f59f2ce783bff5e724cb06033a9e17e8dc514fcf3f52c16e003ae9855b5b2"
+    "bytes": 4321,
+    "sha256": "88657c1057fd532a9fb758dc2c60024c72d52af80a40414f01e811e6b8252a90"
+  },
+  "db/clickhouse/wind_hackathon_upgrade.sql": {
+    "bytes": 1006,
+    "sha256": "9ce01bd0c1cbf39c07d1e5c1561083c401320e23ad09b40966c7ff28fd1509fe"
   },
   "db/clickhouse/wind_objects_seed.sql": {
     "bytes": 789,
     "sha256": "0bcdfea900acd60f4fea9ab6218ec1ea11bc3604502ffc77743ea1f8f9b2aafa"
   },
   "docs/WIND_HACKATHON.md": {
-    "bytes": 16032,
-    "sha256": "91579072ce7f47191dc07fce209e393d4307fa33b88406110777aba9d998366e"
+    "bytes": 27604,
+    "sha256": "5062193b654f26ea0805d50057558655fc41e609ad17521d0d2c7e0d08971f45"
   },
   "requirements.txt": {
-    "bytes": 232,
-    "sha256": "a498bb09c01bd7308df0045a6605ac5e92d77987a6452cb049160c12419c04ff"
+    "bytes": 250,
+    "sha256": "b6075553b5ff58402bab631e22e94debd15dfbed81d5b9222e079ac71b88fb5a"
   }
 }

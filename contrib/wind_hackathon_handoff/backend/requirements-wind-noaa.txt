@@ -1,0 +1,3 @@
+-r requirements-wind.txt
+# Optional strict operational GFS archive decoder; Open-Meteo does not need it.
+eccodes>=2.38,<3

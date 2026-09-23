@@ -190,7 +190,9 @@ MAE — в долях номинальной мощности. Факт по ф�
 часовыми агрегатами, физическая кривая по паспорту + residual `HistGradientBoostingRegressor`,
 обучение только по полным часам (6 валидных 10-минуток), CLI `train / predict / replay`, DDL таблиц
 `wind_objects`, `wind_actuals`, `wind_actuals_gaps`, `wind_weather_forecasts`, `wind_power_forecasts`.
-Тесты: `cd contrib/wind_hackathon_handoff && python -m unittest backend.tests.test_wind_hackathon` (10 тестов).
+Вторая версия пакета добавляет загрузчик архивных прогнозов погоды (Open-Meteo, опционально NOAA GFS через `eccodes`),
+агентный workflow, миграцию схемы `wind_hackathon_upgrade.sql`.
+Тесты: `cd contrib/wind_hackathon_handoff && python -m unittest discover -s backend/tests -t .` (18 тестов).
 Основной сервис (`backend/`) использует те же таблицы данных; модель пакета — альтернативный
 вариант с 10-минутной детализацией. `backend/app/config.py` пакета взят из инфраструктуры проекта
 KEGOC (переиспользование конфигурации, не решения задачи). Пароли — только в `.env.wind` (не в git).

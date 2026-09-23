@@ -7,3 +7,4 @@ requests>=2.31,<3
 pydantic-settings>=2.9,<3
 python-dotenv>=1,<2
 tzdata>=2024.1
+filelock>=3.16,<4

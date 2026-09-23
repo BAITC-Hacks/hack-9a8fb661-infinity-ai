@@ -52,6 +52,14 @@ CREATE TABLE IF NOT EXISTS wind_weather_forecasts
     temperature_2m_c Nullable(Float64),
     pressure_msl_hpa Nullable(Float64),
     precipitation_mm Nullable(Float64),
+    source_url String DEFAULT '',
+    source_sha256 String DEFAULT '',
+    archive_kind LowCardinality(String) DEFAULT 'unspecified',
+    availability_basis String DEFAULT '',
+    requested_latitude Nullable(Float64),
+    requested_longitude Nullable(Float64),
+    grid_latitude Nullable(Float64),
+    grid_longitude Nullable(Float64),
     loaded_at DateTime64(3, 'Etc/GMT-5') DEFAULT now64(3, 'Etc/GMT-5')
 )
 ENGINE = ReplacingMergeTree(loaded_at)
@@ -73,6 +81,10 @@ CREATE TABLE IF NOT EXISTS wind_power_forecasts
     weather_provider LowCardinality(String),
     weather_model LowCardinality(String),
     weather_issued_at DateTime64(3, 'Etc/GMT-5'),
+    weather_available_at Nullable(DateTime64(3, 'Etc/GMT-5')),
+    weather_source_sha256 String DEFAULT '',
+    weather_archive_kind LowCardinality(String) DEFAULT 'unspecified',
+    input_sha256 String DEFAULT '',
     actuals_cutoff DateTime64(3, 'Etc/GMT-5'),
     created_at DateTime64(3, 'Etc/GMT-5') DEFAULT now64(3, 'Etc/GMT-5')
 )

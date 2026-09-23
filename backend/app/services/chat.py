@@ -274,6 +274,7 @@ def ask(question: str, agent_factory, lang: str = "ru", mode: str = "fast", sess
     lang = lang if lang in LANG_NAME else "ru"
     context = context or {}
     history = _SESSIONS.setdefault(session, []) if session else []
+    context["session"] = session
     if llm.is_mock():
         yield from _ask_mock(question, agent_factory, lang, context, history)
         return
@@ -298,11 +299,32 @@ def _context_note(context: dict) -> str:
     return ("Контекст интерфейса: " + ", ".join(parts) + ".") if parts else ""
 
 
+def _with_files(question: str, file_ids: list, session: str):
+    """Текст документов — в сообщение пользователя; изображения — как image_url (для моделей со зрением)."""
+    if not file_ids:
+        return question
+    from app.services import files as fs
+    docs = fs.get(session, file_ids)
+    if not docs:
+        return question
+    budget = 24000 // max(1, len(docs))
+    text = question + "\n\n" + "\n\n".join(
+        f"=== Файл: {d['name']} ===\n{d['text'][:budget]}" + ("\n[…обрезано]" if len(d["text"]) > budget else "")
+        for d in docs)
+    images = [d["image"] for d in docs if d.get("image")]
+    if not images:
+        return text
+    return [{"type": "text", "text": text}, *({"type": "image_url", "image_url": {"url": u}} for u in images)]
+
+
 def _ask_llm(question: str, agent_factory, lang: str, mode: str, context: dict, history: list):
     import time as _t
     t0 = _t.time()
-    system = SYSTEM.format(lang=LANG_NAME[lang]) + "\n" + _context_note(context)
-    messages = [{"role": "system", "content": system}, *history, {"role": "user", "content": question}]
+    system = SYSTEM.format(lang=LANG_NAME[lang]) + "\n" + _context_note(context) + (
+        "\nК вопросу приложены документы сотрудника: изучи их содержимое, опирайся на него и называй файл, "
+        "из которого берёшь факты. Если в документе нет ответа — скажи прямо." if context.get("files") else "")
+    user_content = _with_files(question, context.get("files") or [], context.get("session", ""))
+    messages = [{"role": "system", "content": system}, *history, {"role": "user", "content": user_content}]
     thoughts = []
     for _ in range(MAX_STEPS):
         msg = llm.chat(messages, strong=True, tools=TOOLS, mode=mode)

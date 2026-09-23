@@ -51,7 +51,17 @@ export const api = {
     request<TimelinePoint[]>(`/api/timeline?${q({ turbine, max_lead })}`),
   run: (issue_date: string, force = true) =>
     request<Run>(`/api/run?${q({ issue_date, force })}`, { method: 'POST' }),
-  agentStreamUrl: (question: string, o: { lang: string; mode: string; session: string; issue_date?: string; turbine?: string }) =>
+  upload: async (file: File, session: string) => {
+    const fd = new FormData(); fd.append('file', file); fd.append('session', session)
+    return request<{ id: string; name: string; kind: string; size: number; chars: number; truncated: boolean; preview: string }>('/api/files', { method: 'POST', body: fd })
+  },
+  report: async (fmt: 'docx' | 'xlsx', body: { question: string; answer: string; issue_date: string; turbine: string }) => {
+    const res = await fetch(`/api/report/${fmt}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    if (!res.ok) throw new ApiError(res.status, (await res.json().catch(() => ({ detail: res.statusText }))).detail)
+    const a = document.createElement('a'); a.href = URL.createObjectURL(await res.blob())
+    a.download = `infinity_${body.turbine}_${body.issue_date}.${fmt}`; a.click()
+  },
+  agentStreamUrl: (question: string, o: { lang: string; mode: string; session: string; issue_date?: string; turbine?: string; files?: string }) =>
     `/api/agent?${q({ q: question, ...o })}`,
   exportCsvUrl: '/api/export/forecasts.csv',
 }

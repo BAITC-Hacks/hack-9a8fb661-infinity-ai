@@ -105,13 +105,10 @@ def build_alerts(issue_date: str, turbine: str = "STATION", lang: str = "ru") ->
         if i1 - i0 + 1 >= 3:
             alerts.append({"kind": "icing", "level": "warn", "start": fc.loc[i0, "target_time"], "end": fc.loc[i1, "target_time"],
                            "text": f"Мороз до {tm[i0:i1 + 1].min():.0f} °C ({_hm(fc.loc[i0, 't'])}–{_hm(fc.loc[i1, 't'])}): риск обледенения лопастей и снижения выработки."})
-    # 4. решения агента и достоверность
+    # 4. достоверность (служебные решения агента — в журнале, не в уведомлениях диспетчеру)
     if run["status"] == "low_confidence":
         alerts.append({"kind": "confidence", "level": "warn", "start": fc.loc[0, "target_time"], "end": fc.loc[len(fc) - 1, "target_time"],
                        "text": "Пониженная достоверность: во входных данных перед выпуском были пропуски."})
-    for e in store.agent_log(issue_date, 60):
-        if e.get("reason") and e["tool"] in ("replan", "analyze", "train_model"):
-            alerts.append({"kind": "agent", "level": "info", "start": None, "end": None, "text": f"Агент: {e['reason']}."})
     order = {"critical": 0, "warn": 1, "info": 2}
     alerts.sort(key=lambda a: (order[a["level"]], a["start"] or ""))
     return alerts

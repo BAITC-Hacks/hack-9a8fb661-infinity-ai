@@ -6,7 +6,8 @@ import type { Dict } from '../lib/i18n'
 
 export type AgentMode = 'fast' | 'medium' | 'deep'
 export interface Step { label: string; done: boolean }
-export interface Msg { id: number; role: 'user' | 'agent'; text: string; steps: Step[]; error?: boolean; thinking?: { text: string; seconds: number }; mode?: AgentMode }
+export interface Attached { id: string; name: string; kind: string }
+export interface Msg { id: number; role: 'user' | 'agent'; text: string; steps: Step[]; error?: boolean; thinking?: { text: string; seconds: number }; mode?: AgentMode; files?: Attached[]; question?: string; done?: boolean }
 
 let seq = 1
 const newSession = () => Math.random().toString(36).slice(2, 12)
@@ -40,11 +41,11 @@ export function useAgentStream(d: Dict, lang: string, onDone?: () => void, conte
     return () => clearTimeout(id)
   }, [full, shown])
 
-  const ask = useCallback((question: string) => {
+  const ask = useCallback((question: string, files: Attached[] = []) => {
     es.current?.close()
     setFull(''); setShown(0); setBusy(true)
-    setMsgs((xs) => [...xs, { id: seq++, role: 'user', text: question, steps: [] }, { id: seq++, role: 'agent', text: '', steps: [], mode }])
-    const src = new EventSource(api.agentStreamUrl(question, { lang, mode, session: session.current, ...(ctxRef.current ?? {}) }))
+    setMsgs((xs) => [...xs, { id: seq++, role: 'user', text: question, steps: [], files }, { id: seq++, role: 'agent', text: '', steps: [], mode, question }])
+    const src = new EventSource(api.agentStreamUrl(question, { lang, mode, session: session.current, ...(ctxRef.current ?? {}), files: files.map((f) => f.id).join(',') }))
     es.current = src
     src.onmessage = (e) => {
       const ev = JSON.parse(e.data) as AgentEvent
@@ -55,7 +56,7 @@ export function useAgentStream(d: Dict, lang: string, onDone?: () => void, conte
       else if (ev.type === 'thinking') patchLast((m) => ({ ...m, thinking: { text: ev.text, seconds: ev.seconds } }))
       else if (ev.type === 'answer') setFull(ev.text.replace(/^\[mock\]\s*/, '').replace(/\s*\[mock\]\s*/g, ' '))
       else if (ev.type === 'error') patchLast((m) => ({ ...m, text: `${d.a_fail}: ${ev.text}`, error: true }))
-      else if (ev.type === 'done') { src.close(); setBusy(false); onDone?.() }
+      else if (ev.type === 'done') { src.close(); setBusy(false); patchLast((m) => ({ ...m, done: true })); onDone?.() }
     }
     src.onerror = () => {
       src.close(); setBusy(false)
@@ -64,5 +65,5 @@ export function useAgentStream(d: Dict, lang: string, onDone?: () => void, conte
   }, [onDone, d, lang, mode])
 
   const reset = useCallback(() => { es.current?.close(); setMsgs([]); setBusy(false); session.current = newSession() }, [])
-  return { msgs, busy, ask, mode, setMode, reset }
+  return { msgs, busy, ask, mode, setMode, reset, session: session.current, context: ctxRef.current }
 }

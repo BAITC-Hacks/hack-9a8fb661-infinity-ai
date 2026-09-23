@@ -1,6 +1,6 @@
 import { Download, Loader2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Area, CartesianGrid, ComposedChart, Line, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Area, Bar, BarChart, Cell, ComposedChart, CartesianGrid, LabelList, Line, ReferenceArea, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { ForecastRow, TurbineId, WeatherPoint } from '../api/types'
 import { devTone, fmt, TOL_PCT } from '../lib/calc'
 import { ddmm, hhmm, ruDate } from '../lib/format'
@@ -8,58 +8,74 @@ import { useT } from '../lib/i18n'
 import { usePalette } from '../lib/theme'
 import type { View } from '../components/layout/FilterBar'
 
+export interface PrevIssue { issue_date: string; rows: { target_time: string; p_hat: number }[] }
 interface Props {
-  rows: ForecastRow[]; weather: WeatherPoint[]; rated: number; turbine: TurbineId
+  rows: ForecastRow[]; weather: WeatherPoint[]; prevWeather: WeatherPoint[]; rated: number; turbine: TurbineId
   issueDate: string; horizon: number; view: View; loading: boolean; error: string | null; band: (lead: number) => number
-  showFact: boolean; prevRows: { target_time: string; p_hat: number }[]
+  showFact: boolean; prev: PrevIssue[]
 }
 
-/** Панель 44px (крошки, допуск, пик, экспорт) + график с зумом | таблица + строка погоды по часам. */
+/** Заголовок 44px (крошки, допуск, пик, экспорт), чекбоксы слоёв, график с подписями и аннотациями, Δветра снизу | таблица. */
 export function ChartPanel(p: Props) {
   const { t } = useT()
   const c = usePalette()
   const [zoom, setZoom] = useState<[number, number] | null>(null)
   const [sel, setSel] = useState<{ a: number; b: number } | null>(null)
+  const [cbWind, setWind] = useState(true)
+  const [cbTemp, setTemp] = useState(false)
+  const [cbPrev, setPrev] = useState(true)
 
   const data = useMemo(() => {
     const w = new Map(p.weather.map((x) => [x.time, x]))
-    const prev = new Map(p.prevRows.map((x) => [x.target_time, x.p_hat]))
+    const pw = new Map(p.prevWeather.map((x) => [x.time, x]))
+    const prevMaps = p.prev.map((pi) => new Map(pi.rows.map((x) => [x.target_time, x.p_hat])))
     return p.rows.map((r, i) => {
-      const wx = w.get(r.target_time)
+      const wx = w.get(r.target_time), pwx = pw.get(r.target_time)
       const fcMw = r.p_hat * p.rated, factMw = !p.showFact || r.actual == null ? null : r.actual * p.rated
-      const pv = prev.get(r.target_time)
-      return {
+      const row: Record<string, number | string | null> = {
         i, time: r.target_time, fc: fcMw, fact: factMw,
-        band: [Math.max(0, r.p_hat - p.band(r.lead_hours)) * p.rated, Math.min(1, r.p_hat + p.band(r.lead_hours)) * p.rated],
+        lo: Math.max(0, r.p_hat - p.band(r.lead_hours)) * p.rated, hi: Math.min(1, r.p_hat + p.band(r.lead_hours)) * p.rated,
         dev: factMw == null ? null : fcMw - factMw, devPct: factMw == null || r.actual == null ? null : (r.p_hat - r.actual) * 100,
-        prev: pv == null ? null : pv * p.rated,
         wind: wx?.wind_speed_100m ?? null, gust: wx?.wind_gusts_10m ?? null, temp: wx?.temperature_2m ?? null,
+        dwind: wx?.wind_speed_100m != null && pwx?.wind_speed_100m != null ? wx.wind_speed_100m - pwx.wind_speed_100m : null,
+        lblWind: cbWind && new Date(r.target_time).getUTCHours() % 3 === 1 && wx?.wind_speed_100m != null ? `${wx.wind_speed_100m.toFixed(1)}` : null,
+        lblTemp: cbTemp && new Date(r.target_time).getUTCHours() % 3 === 1 && wx?.temperature_2m != null ? `${wx.temperature_2m > 0 ? '+' : ''}${wx.temperature_2m.toFixed(0)}°` : null,
       }
+      prevMaps.forEach((m, k) => { const v = m.get(r.target_time); row[`prev${k}`] = v == null ? null : v * p.rated })
+      return row
     })
-  }, [p.rows, p.weather, p.rated, p.band, p.showFact, p.prevRows])
+  }, [p.rows, p.weather, p.prevWeather, p.prev, p.rated, p.band, p.showFact, cbWind, cbTemp])
   const shown = zoom ? data.slice(zoom[0], zoom[1] + 1) : data
-  const iPeak = data.length ? data.map((d) => d.fc).indexOf(Math.max(...data.map((d) => d.fc))) : -1
-  const ticks = shown.filter((d) => new Date(d.time).getUTCHours() % 6 === 1).map((d) => d.i)
-  const strip = shown.filter((d) => new Date(d.time).getUTCHours() % 3 === 1)
+  const fcs = data.map((d) => d.fc as number)
+  const iPeak = fcs.length ? fcs.indexOf(Math.max(...fcs)) : -1
+  const facts = data.map((d) => d.fact as number | null)
+  const iFact = facts.some((v) => v != null) ? facts.indexOf(Math.max(...facts.filter((v): v is number => v != null))) : -1
+  const ticks = shown.filter((d) => new Date(String(d.time)).getUTCHours() % 6 === 1).map((d) => d.i as number)
+  const dbars = shown.filter((d) => new Date(String(d.time)).getUTCHours() % 3 === 1)
   const crumbs = [t('root'), t('station'), p.turbine === 'STATION' ? null : p.turbine === 'T1' ? t('t1') : t('t2')].filter(Boolean) as string[]
 
   const exportCsv = () => {
     const head = `# ${t('station')} · ${p.turbine} · ${t('f_issue')} ${p.issueDate} · ${p.horizon}h · Open-Meteo previous runs\n`
     const cols = ['time_utc', 'forecast_mw', 'fact_mw', 'deviation_mw', 'deviation_pct', 'wind_100m_ms', 'gust_10m_ms', 'temp_c']
-    const body = data.map((d) => [d.time, fmt(d.fc, 3), fmt(d.fact, 3), fmt(d.dev, 3), fmt(d.devPct, 1), fmt(d.wind, 1), fmt(d.gust, 1), fmt(d.temp, 1)].join(',')).join('\n')
+    const body = data.map((d) => [d.time, fmt(d.fc as number, 3), fmt(d.fact as number, 3), fmt(d.dev as number, 3), fmt(d.devPct as number, 1), fmt(d.wind as number, 1), fmt(d.gust as number, 1), fmt(d.temp as number, 1)].join(',')).join('\n')
     const a = document.createElement('a')
     a.href = URL.createObjectURL(new Blob([head + cols.join(',') + '\n' + body], { type: 'text/csv;charset=utf-8' }))
     a.download = `forecast_${p.turbine}_${p.issueDate}_${p.horizon}h.csv`; a.click()
   }
+  const Badge = ({ x, y, value, color }: { x?: number; y?: number; value?: string | number; color: string }) =>
+    value == null || x == null || y == null ? null : (
+      <g transform={`translate(${x},${y - 14})`}>
+        <rect x={-16} y={-9} width={32} height={14} rx={3} fill={c.panel} stroke={color} strokeOpacity={0.6} />
+        <text textAnchor="middle" y={2} fontSize={10} fill={color} fontFamily="ui-monospace, monospace">{value}</text>
+      </g>)
 
   return (
-    <section id="forecast" className="panel !p-0">
+    <section className="panel !p-0">
       <div className="flex h-[44px] items-center gap-3 border-b border-line bg-sunk px-3">
-        <span className="mono truncate">
-          {crumbs.map((x, i) => <span key={x}>{i > 0 && <span className="text-mute"> / </span>}<span className={i === crumbs.length - 1 ? 'text-blue' : 'text-mute'}>{x}</span></span>)}
-        </span>
+        <span className="text-[14px] font-semibold">{t('k_forecast')} · {crumbs[crumbs.length - 1]}</span>
+        <span className="mono text-mute">{t('f_issue')} {ruDate(p.issueDate)} · +{p.horizon} h · Open-Meteo</span>
         <span className="mono ml-auto hidden text-mute lg:inline">
-          {t('tol', { tol: TOL_PCT })} · {iPeak >= 0 ? t('peak', { mw: data[iPeak].fc.toFixed(2), t: hhmm(data[iPeak].time) }) : '—'}
+          {t('tol', { tol: TOL_PCT })} · {iPeak >= 0 ? t('peak', { mw: fcs[iPeak].toFixed(2), t: hhmm(String(data[iPeak].time)) }) : '—'}
         </span>
         {p.loading && <Loader2 size={14} className="animate-spin text-mute" />}
         {zoom && <button onClick={() => setZoom(null)} className="rounded-md border border-line px-2 py-1 text-[11px] text-mute hover:text-text">{t('reset_zoom')}</button>}
@@ -70,7 +86,7 @@ export function ChartPanel(p: Props) {
         : p.loading && !p.rows.length ? <State color="text-mute"><Loader2 className="mb-2 animate-spin" />{t('loading')}</State>
         : !p.rows.length ? <State color="text-mute">{t('nodata')}</State>
         : p.view === 'table' ? (
-          <div className="scroll-thin max-h-[460px] overflow-auto">
+          <div className="scroll-thin max-h-[520px] overflow-auto">
             <table className="num w-full text-[13px]">
               <thead className="sticky top-0 bg-panel text-[10px] uppercase tracking-wider text-mute">
                 <tr>{[t('th_time'), t('th_forecast'), t('th_fact'), t('th_dev'), t('th_devp'), t('th_wind'), t('th_temp')].map((h, i) =>
@@ -78,16 +94,16 @@ export function ChartPanel(p: Props) {
               </thead>
               <tbody>
                 {data.map((d) => {
-                  const tone = devTone(d.devPct)
+                  const tone = devTone(d.devPct as number | null)
                   return (
-                    <tr key={d.i} className={`border-b border-line/60 ${tone === 'warn' ? 'bg-warn/10' : tone === 'bad' ? 'bg-bad/10' : ''}`}>
-                      <td className="px-3 py-1.5 text-left">{ddmm(d.time)} {hhmm(d.time)}</td>
-                      <td className="px-3 text-right text-blue">{fmt(d.fc, 2)}</td>
-                      <td className="px-3 text-right text-data">{fmt(d.fact, 2)}</td>
-                      <td className="px-3 text-right">{d.dev == null ? '—' : `${d.dev > 0 ? '+' : ''}${d.dev.toFixed(2)}`}</td>
-                      <td className={`px-3 text-right ${tone === 'warn' ? 'text-warn' : tone === 'bad' ? 'text-bad' : ''}`}>{d.devPct == null ? '—' : `${d.devPct > 0 ? '+' : ''}${d.devPct.toFixed(1)}`}</td>
-                      <td className="px-3 text-right text-mute">{fmt(d.wind, 1)}</td>
-                      <td className="px-3 text-right text-mute">{fmt(d.temp, 1)}</td>
+                    <tr key={String(d.i)} className={`border-b border-line/60 ${tone === 'warn' ? 'bg-warn/10' : tone === 'bad' ? 'bg-bad/10' : ''}`}>
+                      <td className="px-3 py-1.5 text-left">{ddmm(String(d.time))} {hhmm(String(d.time))}</td>
+                      <td className="px-3 text-right text-blue">{fmt(d.fc as number, 2)}</td>
+                      <td className="px-3 text-right text-data">{fmt(d.fact as number, 2)}</td>
+                      <td className="px-3 text-right">{d.dev == null ? '—' : `${(d.dev as number) > 0 ? '+' : ''}${(d.dev as number).toFixed(2)}`}</td>
+                      <td className={`px-3 text-right ${tone === 'warn' ? 'text-warn' : tone === 'bad' ? 'text-bad' : ''}`}>{d.devPct == null ? '—' : `${(d.devPct as number) > 0 ? '+' : ''}${(d.devPct as number).toFixed(1)}`}</td>
+                      <td className="px-3 text-right text-mute">{fmt(d.wind as number, 1)}</td>
+                      <td className="px-3 text-right text-mute">{fmt(d.temp as number, 1)}</td>
                     </tr>)
                 })}
               </tbody>
@@ -95,48 +111,61 @@ export function ChartPanel(p: Props) {
           </div>
         ) : (
           <div className="p-3">
-            <div className="mb-1 flex items-center gap-4 text-[12px] text-mute">
-              <span className="flex items-center gap-1.5"><i className="h-[3px] w-4 rounded" style={{ background: c.blue }} />{t('k_forecast')}</span>
-              {p.showFact && <span className="flex items-center gap-1.5"><i className="h-[3px] w-4 rounded" style={{ background: c.data }} />{t('k_fact')}</span>}
-              {p.prevRows.length > 0 && <span className="flex items-center gap-1.5"><i className="h-0 w-4" style={{ borderTop: `2px dotted ${c.mute}` }} />{t('pp_prev')}</span>}
-              <span className="num ml-auto">{t('f_issue')} {ruDate(p.issueDate)} · {p.horizon} h · {t('mw')}</span>
+            <div className="mb-2 flex flex-wrap items-center gap-4">
+              <label className="chk"><input type="checkbox" checked={cbWind} onChange={(e) => setWind(e.target.checked)} />{t('cb_wind')}</label>
+              <label className="chk"><input type="checkbox" checked={cbTemp} onChange={(e) => setTemp(e.target.checked)} />{t('cb_temp')}</label>
+              <label className="chk"><input type="checkbox" checked={cbPrev} onChange={(e) => setPrev(e.target.checked)} />{t('cb_prev')}</label>
+              <span className="ml-auto flex items-center gap-4 text-[12px] text-mute">
+                {p.showFact && <span className="flex items-center gap-1.5"><i className="h-[2px] w-4" style={{ background: c.data }} />{t('k_fact')}</span>}
+                <span className="flex items-center gap-1.5"><i className="h-0 w-4" style={{ borderTop: `2px dashed ${c.blue}` }} />{t('k_forecast')}</span>
+                {cbPrev && p.prev.length > 0 && <span className="flex items-center gap-1.5"><i className="h-0 w-4" style={{ borderTop: `1px dotted ${c.mute}` }} />{t('pp_prev')} ×{p.prev.length}</span>}
+              </span>
             </div>
             <div className="h-[340px] select-none">
               <ResponsiveContainer>
-                <ComposedChart key={`${p.issueDate}${p.turbine}${p.horizon}`} data={shown} margin={{ top: 8, right: 8, left: -4, bottom: 0 }}
+                <ComposedChart key={`${p.issueDate}${p.turbine}${p.horizon}`} data={shown} margin={{ top: 24, right: 12, left: -4, bottom: 0 }}
                   onMouseDown={(e) => e?.activeLabel != null && setSel({ a: Number(e.activeLabel), b: Number(e.activeLabel) })}
                   onMouseMove={(e) => sel && e?.activeLabel != null && setSel({ a: sel.a, b: Number(e.activeLabel) })}
                   onMouseUp={() => { if (sel && Math.abs(sel.b - sel.a) >= 2) setZoom([Math.min(sel.a, sel.b), Math.max(sel.a, sel.b)]); setSel(null) }}>
-                  <defs>
-                    <linearGradient id="gFc" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={c.blue} stopOpacity={0.35} /><stop offset="100%" stopColor={c.blue} stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke={c.line} strokeDasharray="3 5" vertical={false} />
-                  <XAxis dataKey="i" type="number" domain={['dataMin', 'dataMax']} ticks={ticks} tickFormatter={(i) => (data[i] ? hhmm(data[i].time) : '')}
-                    tick={{ fill: c.mute, fontSize: 12 }} tickLine={false} axisLine={{ stroke: c.line }} />
-                  <YAxis domain={[0, p.rated]} tick={{ fill: c.mute, fontSize: 12 }} tickLine={false} axisLine={false} width={40} />
-                  <Tooltip content={<Tip c={c} t={t} />} cursor={{ stroke: c.blue, strokeOpacity: 0.5 }} isAnimationActive={false} />
-                  <Area dataKey="band" stroke="none" fill={c.blue} fillOpacity={0.07} isAnimationActive animationDuration={800} />
-                  <Area dataKey="fc" stroke="none" fill="url(#gFc)" isAnimationActive animationDuration={900} />
-                  <Line dataKey="fc" stroke={c.blue} strokeWidth={2.5} dot={false} type="monotone" isAnimationActive animationDuration={900}
-                    activeDot={{ r: 4, fill: c.blue, stroke: c.panel, strokeWidth: 2 }} />
-                  <Line dataKey="prev" stroke={c.mute} strokeWidth={1.5} strokeDasharray="2 4" dot={false} type="monotone" isAnimationActive animationDuration={900} />
-                  <Line dataKey="fact" stroke={c.data} strokeWidth={2.5} dot={false} type="monotone" connectNulls={false} isAnimationActive animationDuration={1000}
-                    activeDot={{ r: 4, fill: c.data, stroke: c.panel, strokeWidth: 2 }} />
+                  <CartesianGrid stroke={c.line} strokeDasharray="3 5" />
+                  <XAxis dataKey="i" type="number" domain={['dataMin', 'dataMax']} ticks={ticks} tickFormatter={(i) => (data[i] ? hhmm(String(data[i].time)) : '')}
+                    tick={{ fill: c.mute, fontSize: 11, fontFamily: 'ui-monospace, monospace' }} tickLine={false} axisLine={{ stroke: c.line }} />
+                  <YAxis domain={[0, p.rated]} tick={{ fill: c.mute, fontSize: 11, fontFamily: 'ui-monospace, monospace' }} tickLine={false} axisLine={false} width={44}
+                    label={{ value: t('mw'), angle: -90, position: 'insideLeft', fill: c.mute, fontSize: 10 }} />
+                  <Tooltip content={<Tip c={c} t={t} />} cursor={{ stroke: c.mute, strokeDasharray: '3 3' }} isAnimationActive={false} />
+                  <Area dataKey="hi" stroke="none" fill={c.blue} fillOpacity={0.06} isAnimationActive={false} />
+                  <Area dataKey="lo" stroke="none" fill={c.bg} fillOpacity={1} isAnimationActive={false} />
+                  {cbPrev && p.prev.map((_, k) => <Line key={k} dataKey={`prev${k}`} stroke={c.curve} strokeOpacity={0.35 + 0.5 / (k + 1)} strokeWidth={1} strokeDasharray="2 4" dot={false} type="monotone" isAnimationActive={false} />)}
+                  <Line dataKey="fc" stroke={c.blue} strokeWidth={2} strokeDasharray="6 4" dot={false} type="monotone" isAnimationActive animationDuration={900}
+                    activeDot={{ r: 4, fill: c.blue, stroke: c.panel, strokeWidth: 2 }}>
+                    <LabelList dataKey="lblWind" content={(pr) => <Badge x={pr.x as number} y={pr.y as number} value={pr.value as string} color={c.blue} />} />
+                  </Line>
+                  <Line dataKey="fact" stroke={c.data} strokeWidth={2} dot={false} type="monotone" connectNulls={false} isAnimationActive animationDuration={1000}
+                    activeDot={{ r: 4, fill: c.data, stroke: c.panel, strokeWidth: 2 }}>
+                    <LabelList dataKey="lblTemp" content={(pr) => <Badge x={pr.x as number} y={pr.y as number} value={pr.value as string} color={c.warn} />} />
+                  </Line>
+                  {iPeak >= 0 && (!zoom || (iPeak >= zoom[0] && iPeak <= zoom[1])) && <ReferenceDot x={iPeak} y={fcs[iPeak]} r={4} fill={c.blue} stroke={c.panel}
+                    label={{ value: `${t('max_fc')}: ${fcs[iPeak].toFixed(2)} ${t('mw')}`, position: 'top', fill: c.blue, fontSize: 11, fontFamily: 'ui-monospace, monospace' }} />}
+                  {iFact >= 0 && (!zoom || (iFact >= zoom[0] && iFact <= zoom[1])) && <ReferenceDot x={iFact} y={facts[iFact] as number} r={4} fill={c.data} stroke={c.panel}
+                    label={{ value: `${t('max_fact')}: ${(facts[iFact] as number).toFixed(2)} ${t('mw')}`, position: 'top', fill: c.data, fontSize: 11, fontFamily: 'ui-monospace, monospace' }} />}
                   {sel && <ReferenceArea x1={Math.min(sel.a, sel.b)} x2={Math.max(sel.a, sel.b)} fill={c.blue} fillOpacity={0.1} />}
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
-            <div className="mt-2 border-t border-line pt-2">
-              <div className="lbl mb-1">{t('wx_strip')}</div>
-              <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${strip.length}, minmax(0, 1fr))` }}>
-                {strip.map((d) => (
-                  <div key={d.i} className="num rounded-md bg-sunk px-1 py-1 text-center text-[11px] leading-tight">
-                    <div className="text-mute">{hhmm(d.time)}</div>
-                    <div className="font-medium">{fmt(d.wind, 0)}<span className="text-mute"> м/с</span></div>
-                    <div className={d.temp != null && d.temp < -10 ? 'text-blue' : 'text-mute'}>{d.temp == null ? '—' : `${d.temp > 0 ? '+' : ''}${d.temp.toFixed(0)}°`}</div>
-                  </div>))}
+            <div className="mt-1 border-t border-line pt-2">
+              <div className="mono mb-1 text-mute">{t('dwind_title')}</div>
+              <div className="h-[110px]">
+                <ResponsiveContainer>
+                  <BarChart data={dbars} margin={{ top: 14, right: 12, left: -4, bottom: 0 }} barCategoryGap="35%">
+                    <CartesianGrid stroke={c.line} strokeDasharray="3 5" vertical={false} />
+                    <XAxis dataKey="time" tickFormatter={(v) => hhmm(String(v))} tick={{ fill: c.mute, fontSize: 10, fontFamily: 'ui-monospace, monospace' }} tickLine={false} axisLine={{ stroke: c.line }} />
+                    <YAxis tick={{ fill: c.mute, fontSize: 10 }} tickLine={false} axisLine={false} width={44} tickCount={3} />
+                    <Bar dataKey="dwind" isAnimationActive animationDuration={700} radius={1}>
+                      {dbars.map((d) => <Cell key={String(d.i)} fill={(d.dwind as number) >= 0 ? c.blue : c.warn} fillOpacity={0.8} />)}
+                      <LabelList dataKey="dwind" position="top" formatter={(v: unknown) => (v == null ? '' : `${Number(v) > 0 ? '+' : ''}${Number(v).toFixed(1)}`)} style={{ fill: c.mute, fontSize: 9, fontFamily: 'ui-monospace, monospace' }} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </div>
           </div>
@@ -159,6 +188,7 @@ function Tip({ active, payload, c, t }: TipProps) {
       <div className="mb-1 text-mute">{ddmm(String(d.time))} {hhmm(String(d.time))}</div>
       {row(t('k_forecast'), `${fmt(d.fc as number, 2)} ${t('mw')}`, c.blue)}
       {d.fact != null && row(t('k_fact'), `${fmt(d.fact as number, 2)} ${t('mw')}`, c.data)}
+      {d.prev0 != null && row(t('pp_prev'), `${fmt(d.prev0 as number, 2)} ${t('mw')}`, c.curve)}
       {d.wind != null && row(t('layer_wind'), fmt(d.wind as number, 1), c.mute)}
       {d.gust != null && row(t('layer_gust'), fmt(d.gust as number, 1), c.mute)}
       {d.temp != null && row(t('layer_temp'), fmt(d.temp as number, 1), c.mute)}

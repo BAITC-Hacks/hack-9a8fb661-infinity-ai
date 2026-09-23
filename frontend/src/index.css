@@ -14,7 +14,7 @@
   --color-warn: #f0883e;
   --color-curve: #a371f7;
   --color-bad: #f85149;
-  --color-data: #2dd4bf;
+  --color-data: #e3b341;
   --color-ink: #04121f;
   --color-sunk: #0b0f14;
 }
@@ -30,7 +30,7 @@
   --color-warn: #bc4c00;
   --color-curve: #8250df;
   --color-bad: #cf222e;
-  --color-data: #0f766e;
+  --color-data: #9a6700;
   --color-ink: #ffffff;
   --color-sunk: #eef1f4;
 }
@@ -75,3 +75,6 @@ body { @apply bg-bg text-text font-sans text-base antialiased; transition: backg
 .turbine-marker svg { width: 100%; height: 100%; overflow: visible; }
 .turbine-marker .rotor { transform-origin: 17px 12px; animation: spin var(--spin, 3s) linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.chk { @apply flex cursor-pointer select-none items-center gap-1.5 text-[12px] text-mute; }
+.chk input { @apply size-3.5 accent-[var(--color-blue)]; }

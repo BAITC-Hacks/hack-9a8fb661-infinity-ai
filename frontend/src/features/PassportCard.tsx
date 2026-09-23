@@ -9,8 +9,8 @@ export function PassportCard({ p, error }: { p: Passport | null; error: string |
     <div className="flex justify-between gap-3 border-b border-line/60 py-1.5 text-[12px]"><span className="text-mute">{k}</span><span className={`num text-right ${tone ?? ''}`}>{v}</span></div>
   )
   return (
-    <section className="panel rise self-start" style={{ animationDelay: '150ms' }}>
-      <div className="mb-2 flex items-center justify-between"><h2 className="text-[16px] font-semibold">{t('passport')}</h2>
+    <section className="rounded-lg border border-line bg-sunk p-3">
+      <div className="mb-2 flex items-center justify-end">
         {p?.weather.all_runs_before_issue && <span className="flex items-center gap-1 text-[11px] text-good"><ShieldCheck size={13} />{t('pp_ok')}</span>}</div>
       {error ? <p className="text-[13px] text-bad">{t('err')}: {error}</p> : !p ? <div className="shimmer h-40 rounded-lg" /> : (
         <>

@@ -18,7 +18,7 @@ export function SiteMap({ objects, wind, direction, power }: Props) {
   const objs = objects.length ? objects : FALLBACK
   const spinSec = wind == null || wind < 2.5 ? 0 : Math.max(1.2, 12 / wind)
   return (
-    <section id="map" className="panel rise !p-0">
+    <section className="panel rise !p-0">
       <div className="flex h-[44px] items-center gap-3 border-b border-line bg-sunk px-3">
         <span className="text-[14px] font-semibold">{t('map')}</span>
         <span className="mono ml-auto text-mute">{t('map_hint')} · {wind == null ? '—' : `${wind.toFixed(1)} м/с`}{direction == null ? '' : ` · ${Math.round(direction)}°`}</span>
@@ -61,7 +61,7 @@ function LeafletMap({ objs, spinSec }: { objs: WindObject[]; spinSec: number }) 
       .bindTooltip(`${o.name} · ${o.rated_power_mw ?? 2.5} МВт`).addTo(layer))
     return () => { layer.remove() }
   }, [objs, spinSec, c.blue])
-  return <div ref={ref} className="h-[360px] w-full" />
+  return <div ref={ref} className="h-[520px] w-full" />
 }
 
 /** three.js: земля, две турбины (башня 80 м, ротор 109 м), вращение ∝ ветру, поворот гондолы по направлению. */
@@ -72,18 +72,50 @@ function Scene({ objs, wind, direction, power }: { objs: WindObject[]; wind: num
   const c = usePalette()
   useEffect(() => {
     const el = ref.current; if (!el) return
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+    const renderer = new THREE.WebGLRenderer({ antialias: true })
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio))
     renderer.setSize(el.clientWidth, el.clientHeight)
     el.appendChild(renderer.domElement)
     const scene = new THREE.Scene()
     const camera = new THREE.PerspectiveCamera(45, el.clientWidth / el.clientHeight, 1, 5000)
     camera.position.set(-260, 150, 420); camera.lookAt(0, 60, 0)
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x334455, 1.1))
-    const sun = new THREE.DirectionalLight(0xffffff, 1.4); sun.position.set(200, 300, 100); scene.add(sun)
-    const ground = new THREE.Mesh(new THREE.CircleGeometry(700, 64), new THREE.MeshStandardMaterial({ color: new THREE.Color(c.sunk), roughness: 1 }))
-    ground.rotation.x = -Math.PI / 2; scene.add(ground)
-    const grid = new THREE.GridHelper(1400, 28, new THREE.Color(c.line), new THREE.Color(c.line)); (grid.material as THREE.Material).transparent = true; (grid.material as THREE.Material).opacity = 0.5; scene.add(grid)
+    scene.add(new THREE.HemisphereLight(0xdfe9ff, 0x8a7d5c, 0.9))
+    const sun = new THREE.DirectionalLight(0xfff2d6, 1.6); sun.position.set(300, 400, -150); scene.add(sun)
+    // Ландшафт: полупустыня у п. Нурлы — песчаная равнина с пологими холмами, редкий кустарник, грунтовые дороги
+    scene.background = new THREE.Color(c.bg)
+    scene.fog = new THREE.Fog(new THREE.Color(c.bg), 700, 1600)
+    const noise = (x: number, z: number) => Math.sin(x * 0.011) * Math.cos(z * 0.009) * 6 + Math.sin(x * 0.037 + z * 0.021) * 2 + Math.sin(x * 0.09) * Math.cos(z * 0.07) * 0.6
+    const terrainGeo = new THREE.PlaneGeometry(1800, 1800, 120, 120)
+    const pos = terrainGeo.attributes.position
+    const colors: number[] = []
+    const sand = new THREE.Color('#d8cdb2'), sandDark = new THREE.Color('#bfb190'), dark = new THREE.Color('#8c8468')
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i)
+      const h = noise(x, -y)
+      pos.setZ(i, h)
+      const k = Math.min(1, Math.max(0, (h + 4) / 12))
+      const col = sandDark.clone().lerp(sand, k)
+      if (Math.sin(x * 0.5) * Math.cos(y * 0.37) > 0.985) col.copy(dark)   // пятна кустарника
+      colors.push(col.r, col.g, col.b)
+    }
+    terrainGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+    terrainGeo.computeVertexNormals()
+    const terrain = new THREE.Mesh(terrainGeo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0 }))
+    terrain.rotation.x = -Math.PI / 2; terrain.receiveShadow = true; scene.add(terrain)
+    // кустарник
+    const shrubGeo = new THREE.SphereGeometry(1.6, 6, 5), shrubMat = new THREE.MeshStandardMaterial({ color: '#4c5a3c', roughness: 1 })
+    const shrubs = new THREE.InstancedMesh(shrubGeo, shrubMat, 700)
+    const m4 = new THREE.Matrix4()
+    for (let i = 0; i < 700; i++) {
+      const x = (Math.random() - 0.5) * 1600, z = (Math.random() - 0.5) * 1600
+      const sc = 0.6 + Math.random() * 1.4
+      m4.compose(new THREE.Vector3(x, noise(x, z) + 0.8, z), new THREE.Quaternion(), new THREE.Vector3(sc, sc * 0.7, sc))
+      shrubs.setMatrixAt(i, m4)
+    }
+    scene.add(shrubs)
+    // грунтовая дорога к площадке
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(6, 1400), new THREE.MeshStandardMaterial({ color: '#c9bc9c', roughness: 1 }))
+    road.rotation.x = -Math.PI / 2; road.rotation.z = 0.35; road.position.y = 0.15; scene.add(road)
 
     // метры относительно центра площадки: 1° широты ≈ 111 км, долготы ≈ 111 км·cos(lat)
     const lat0 = objs.reduce((a, o) => a + o.latitude, 0) / objs.length, lon0 = objs.reduce((a, o) => a + o.longitude, 0) / objs.length
@@ -93,7 +125,8 @@ function Scene({ objs, wind, direction, power }: { objs: WindObject[]; wind: num
     objs.forEach((o) => {
       const x = (o.longitude - lon0) * 111000 * Math.cos((lat0 * Math.PI) / 180), z = -(o.latitude - lat0) * 111000
       const h = o.tower_height_m ?? 80, r = (o.rotor_diameter_m ?? 109) / 2
-      const g = new THREE.Group(); g.position.set(x, 0, z)
+      const g = new THREE.Group(); g.position.set(x, noise(x, z), z)
+      const pad = new THREE.Mesh(new THREE.CylinderGeometry(9, 9, 0.6, 32), new THREE.MeshStandardMaterial({ color: '#b9b2a4', roughness: 1 })); pad.position.y = 0.3; g.add(pad)
       const tower = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 3.2, h, 24), white); tower.position.y = h / 2; g.add(tower)
       const nac = new THREE.Group(); nac.position.y = h
       nac.add(new THREE.Mesh(new THREE.BoxGeometry(12, 5, 5), white))
@@ -106,7 +139,6 @@ function Scene({ objs, wind, direction, power }: { objs: WindObject[]; wind: num
         hub.add(pivot)
       }
       nac.add(hub); g.add(nac); scene.add(g); rotors.push(hub); nacelles.push(nac)
-      const lbl = new THREE.Mesh(new THREE.RingGeometry(14, 16, 32), accent); lbl.rotation.x = -Math.PI / 2; lbl.position.y = 0.3; g.add(lbl)
     })
 
     let raf = 0; let t0 = performance.now()
@@ -124,6 +156,6 @@ function Scene({ objs, wind, direction, power }: { objs: WindObject[]; wind: num
     const onResize = () => { renderer.setSize(el.clientWidth, el.clientHeight); camera.aspect = el.clientWidth / el.clientHeight; camera.updateProjectionMatrix() }
     window.addEventListener('resize', onResize)
     return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); renderer.dispose(); el.removeChild(renderer.domElement) }
-  }, [objs, c.blue, c.line, c.sunk])
-  return <div ref={ref} className="h-[360px] w-full border-l border-line" />
+  }, [objs, c.blue, c.bg])
+  return <div ref={ref} className="h-[520px] w-full border-l border-line" />
 }

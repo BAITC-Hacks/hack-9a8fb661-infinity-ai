@@ -44,13 +44,33 @@ def agent_chat(q: str = Query(..., min_length=1, max_length=1000),
     mode — быстрый/средний/думающий; session — память диалога; issue_date/turbine — контекст экрана."""
     ctx = {"issue_date": issue_date, "turbine": turbine, "files": [f for f in files.split(",") if f]}
 
-    def stream():
+    import queue
+    import threading
+
+    q_events: queue.Queue = queue.Queue()
+
+    def worker():
         try:
             for ev in ask(q, get_agent, lang, mode, session, ctx):
-                yield f"data: {json.dumps(ev, ensure_ascii=False, default=str)}\n\n"
+                q_events.put(ev)
         except Exception as e:
             log.exception("chat failed")
-            yield f"data: {json.dumps({'type': 'error', 'text': str(e)}, ensure_ascii=False)}\n\n"
+            q_events.put({"type": "error", "text": str(e)})
+        q_events.put(None)
+
+    threading.Thread(target=worker, daemon=True).start()
+
+    def stream():
+        # пока модель думает (до минут в «думающем» режиме), шлём keep-alive, чтобы соединение не рвалось
+        while True:
+            try:
+                ev = q_events.get(timeout=10)
+            except queue.Empty:
+                yield ": ping\n\n"
+                continue
+            if ev is None:
+                break
+            yield f"data: {json.dumps(ev, ensure_ascii=False, default=str)}\n\n"
         yield 'data: {"type": "done"}\n\n'
     return StreamingResponse(stream(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

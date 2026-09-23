@@ -4,6 +4,7 @@ import { FilterBar, type Mode, type View } from '../components/layout/FilterBar'
 import { ChartPanel } from '../features/ChartPanel'
 import { AlertsPanel } from '../features/AlertsPanel'
 import { AnalogsPanel } from '../features/AnalogsPanel'
+import { HourlyTable, LastCalc, WeatherRelease } from '../features/ForecastSide'
 import { KpiStrip } from '../features/KpiStrip'
 import { useAsync } from '../hooks/useAsync'
 import { kpis } from '../lib/calc'
@@ -44,10 +45,13 @@ export function ForecastPage({ ctx }: { ctx: Ctx }) {
           <ChartPanel rows={rows} weather={weather.data ?? []} prevWeather={prevWeather.data ?? []} rated={rated} turbine={turbine} issueDate={issueDate} horizon={horizon}
             view={view} loading={forecast.loading} error={forecast.error} band={band} showFact={mode === 'eval'} prev={prevList} />
           <div className="space-y-4">
+            <WeatherRelease weather={weather.data ?? []} issueDate={issueDate} />
+            <LastCalc rows={rows} prevRows={prevList[0]?.rows ?? []} rated={rated} />
             <AlertsPanel alerts={alerts.data ?? []} summary={forecast.data?.run.summary ?? null} passport={passport.data} llm={llm} loading={alerts.loading} />
             <AnalogsPanel a={analogs.data} loading={analogs.loading} />
           </div>
         </div>
+        <HourlyTable rows={rows} weather={weather.data ?? []} rated={rated} showFact={mode === 'eval'} />
       </main>
     </>
   )

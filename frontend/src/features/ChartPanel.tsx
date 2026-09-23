@@ -1,6 +1,6 @@
 import { Download, Loader2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Bar, BarChart, Cell, ComposedChart, CartesianGrid, LabelList, Line, ReferenceArea, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { ComposedChart, CartesianGrid, LabelList, Line, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { ForecastRow, TurbineId, WeatherPoint } from '../api/types'
 import { devTone, fmt, TOL_PCT } from '../lib/calc'
 import { ddmm, hhmm, ruDate } from '../lib/format'
@@ -21,9 +21,10 @@ export function ChartPanel(p: Props) {
   const c = usePalette()
   const [zoom, setZoom] = useState<[number, number] | null>(null)
   const [sel, setSel] = useState<{ a: number; b: number } | null>(null)
-  const [cbWind, setWind] = useState(true)
+  const [cbWind, setWind] = useState(false)
   const [cbTemp, setTemp] = useState(false)
   const [cbPrev, setPrev] = useState(true)
+  const [cbBand, setBand] = useState(false)
 
   const data = useMemo(() => {
     const w = new Map(p.weather.map((x) => [x.time, x]))
@@ -48,10 +49,7 @@ export function ChartPanel(p: Props) {
   const shown = zoom ? data.slice(zoom[0], zoom[1] + 1) : data
   const fcs = data.map((d) => d.fc as number)
   const iPeak = fcs.length ? fcs.indexOf(Math.max(...fcs)) : -1
-  const facts = data.map((d) => d.fact as number | null)
-  const iFact = facts.some((v) => v != null) ? facts.indexOf(Math.max(...facts.filter((v): v is number => v != null))) : -1
   const ticks = shown.filter((d) => new Date(String(d.time)).getUTCHours() % 6 === 1).map((d) => d.i as number)
-  const dbars = shown.filter((d) => new Date(String(d.time)).getUTCHours() % 3 === 1)
   const crumbs = [t('root'), t('station'), p.turbine === 'STATION' ? null : p.turbine === 'T1' ? t('t1') : t('t2')].filter(Boolean) as string[]
 
   const exportCsv = () => {
@@ -115,14 +113,14 @@ export function ChartPanel(p: Props) {
               <label className="chk"><input type="checkbox" checked={cbWind} onChange={(e) => setWind(e.target.checked)} />{t('cb_wind')}</label>
               <label className="chk"><input type="checkbox" checked={cbTemp} onChange={(e) => setTemp(e.target.checked)} />{t('cb_temp')}</label>
               <label className="chk"><input type="checkbox" checked={cbPrev} onChange={(e) => setPrev(e.target.checked)} />{t('cb_prev')}</label>
+              <label className="chk"><input type="checkbox" checked={cbBand} onChange={(e) => setBand(e.target.checked)} />{t('band80')}</label>
               <span className="ml-auto flex items-center gap-4 text-[12px] text-mute">
                 {p.showFact && <span className="flex items-center gap-1.5"><i className="h-[2px] w-4" style={{ background: c.data }} />{t('k_fact')}</span>}
                 <span className="flex items-center gap-1.5"><i className="h-0 w-4" style={{ borderTop: `2px dashed ${c.blue}` }} />{t('k_forecast')}</span>
-                <span className="flex items-center gap-1.5"><i className="h-0 w-4" style={{ borderTop: `1px solid ${c.blue}`, opacity: 0.5 }} />{t('band80')}</span>
                 {cbPrev && p.prev.length > 0 && <span className="flex items-center gap-1.5"><i className="h-0 w-4" style={{ borderTop: `1px dotted ${c.mute}` }} />{t('pp_prev')} ×{p.prev.length}</span>}
               </span>
             </div>
-            <div className="h-[460px] select-none">
+            <div className="h-[400px] select-none">
               <ResponsiveContainer>
                 <ComposedChart key={`${p.issueDate}${p.turbine}${p.horizon}`} data={shown} margin={{ top: 24, right: 12, left: -4, bottom: 0 }}
                   onMouseDown={(e) => e?.activeLabel != null && setSel({ a: Number(e.activeLabel), b: Number(e.activeLabel) })}
@@ -134,8 +132,8 @@ export function ChartPanel(p: Props) {
                   <YAxis domain={[0, p.rated]} tick={{ fill: c.mute, fontSize: 11, fontFamily: 'ui-monospace, monospace' }} tickLine={false} axisLine={false} width={44}
                     label={{ value: t('mw'), angle: -90, position: 'insideLeft', fill: c.mute, fontSize: 10 }} />
                   <Tooltip content={<Tip c={c} t={t} />} cursor={{ stroke: c.mute, strokeDasharray: '3 3' }} isAnimationActive={false} />
-                  <Line dataKey="hi" stroke={c.blue} strokeOpacity={0.45} strokeWidth={1} dot={false} type="monotone" isAnimationActive={false} />
-                  <Line dataKey="lo" stroke={c.blue} strokeOpacity={0.45} strokeWidth={1} dot={false} type="monotone" isAnimationActive={false} />
+                  {cbBand && <Line dataKey="hi" stroke={c.blue} strokeOpacity={0.4} strokeWidth={1} strokeDasharray="2 3" dot={false} type="monotone" isAnimationActive={false} />}
+                  {cbBand && <Line dataKey="lo" stroke={c.blue} strokeOpacity={0.4} strokeWidth={1} strokeDasharray="2 3" dot={false} type="monotone" isAnimationActive={false} />}
                   {cbPrev && p.prev.map((_, k) => <Line key={k} dataKey={`prev${k}`} stroke={c.curve} strokeOpacity={0.35 + 0.5 / (k + 1)} strokeWidth={1} strokeDasharray="2 4" dot={false} type="monotone" isAnimationActive={false} />)}
                   <Line dataKey="fc" stroke={c.blue} strokeWidth={2} strokeDasharray="6 4" dot={false} type="monotone" isAnimationActive animationDuration={900}
                     activeDot={{ r: 4, fill: c.blue, stroke: c.panel, strokeWidth: 2 }}>
@@ -145,27 +143,27 @@ export function ChartPanel(p: Props) {
                     activeDot={{ r: 4, fill: c.data, stroke: c.panel, strokeWidth: 2 }}>
                     <LabelList dataKey="lblTemp" content={(pr) => <Badge x={pr.x as number} y={pr.y as number} value={pr.value as string} color={c.warn} />} />
                   </Line>
-                  {iPeak >= 0 && (!zoom || (iPeak >= zoom[0] && iPeak <= zoom[1])) && <ReferenceDot x={iPeak} y={fcs[iPeak]} r={4} fill={c.blue} stroke={c.panel}
-                    label={{ value: `${t('max_fc')}: ${fcs[iPeak].toFixed(2)} ${t('mw')}`, position: 'top', fill: c.blue, fontSize: 11, fontFamily: 'ui-monospace, monospace' }} />}
-                  {iFact >= 0 && (!zoom || (iFact >= zoom[0] && iFact <= zoom[1])) && <ReferenceDot x={iFact} y={facts[iFact] as number} r={4} fill={c.data} stroke={c.panel}
-                    label={{ value: `${t('max_fact')}: ${(facts[iFact] as number).toFixed(2)} ${t('mw')}`, position: 'top', fill: c.data, fontSize: 11, fontFamily: 'ui-monospace, monospace' }} />}
                   {sel && <ReferenceArea x1={Math.min(sel.a, sel.b)} x2={Math.max(sel.a, sel.b)} fill={c.blue} fillOpacity={0.1} />}
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
             <div className="mt-1 border-t border-line pt-2">
-              <div className="mono mb-1 text-mute">{t('dwind_title')}</div>
-              <div className="h-[120px]">
+              <div className="mb-1 flex items-center gap-4 text-[12px]">
+                <span className="font-semibold">{t('wx_title')}</span>
+                <span className="ml-auto flex items-center gap-1.5 text-mute"><i className="h-[2px] w-4" style={{ background: c.blue }} />{t('layer_wind')}</span>
+                <span className="flex items-center gap-1.5 text-mute"><i className="h-[2px] w-4" style={{ background: c.warn }} />{t('layer_temp')}</span>
+              </div>
+              <div className="h-[130px]">
                 <ResponsiveContainer>
-                  <BarChart data={dbars} margin={{ top: 14, right: 12, left: -4, bottom: 0 }} barCategoryGap="35%">
+                  <ComposedChart data={shown} margin={{ top: 6, right: 12, left: -4, bottom: 0 }}>
                     <CartesianGrid stroke={c.line} strokeDasharray="3 5" vertical={false} />
-                    <XAxis dataKey="time" tickFormatter={(v) => hhmm(String(v))} tick={{ fill: c.mute, fontSize: 10, fontFamily: 'ui-monospace, monospace' }} tickLine={false} axisLine={{ stroke: c.line }} />
-                    <YAxis tick={{ fill: c.mute, fontSize: 10 }} tickLine={false} axisLine={false} width={44} tickCount={3} />
-                    <Bar dataKey="dwind" isAnimationActive animationDuration={700} radius={1}>
-                      {dbars.map((d) => <Cell key={String(d.i)} fill={(d.dwind as number) >= 0 ? c.blue : c.warn} fillOpacity={0.8} />)}
-                      <LabelList dataKey="dwind" position="top" formatter={(v: unknown) => (v == null ? '' : `${Number(v) > 0 ? '+' : ''}${Number(v).toFixed(1)}`)} style={{ fill: c.mute, fontSize: 9, fontFamily: 'ui-monospace, monospace' }} />
-                    </Bar>
-                  </BarChart>
+                    <XAxis dataKey="i" type="number" domain={['dataMin', 'dataMax']} ticks={ticks} tickFormatter={(i) => (data[i] ? hhmm(String(data[i].time)) : '')} tick={{ fill: c.mute, fontSize: 10 }} tickLine={false} axisLine={{ stroke: c.line }} />
+                    <YAxis yAxisId="w" tick={{ fill: c.mute, fontSize: 10 }} tickLine={false} axisLine={false} width={44} label={{ value: 'м/с', angle: -90, position: 'insideLeft', fill: c.mute, fontSize: 10 }} />
+                    <YAxis yAxisId="t" orientation="right" tick={{ fill: c.warn, fontSize: 10 }} tickLine={false} axisLine={false} width={34} />
+                    <Tooltip content={<Tip c={c} t={t} />} cursor={{ stroke: c.mute, strokeDasharray: '3 3' }} isAnimationActive={false} />
+                    <Line yAxisId="w" dataKey="wind" stroke={c.blue} strokeWidth={2} dot={false} type="monotone" isAnimationActive animationDuration={800} />
+                    <Line yAxisId="t" dataKey="temp" stroke={c.warn} strokeWidth={1.8} dot={false} type="monotone" isAnimationActive animationDuration={800} />
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
             </div>

@@ -395,7 +395,11 @@ def _ask_llm(question: str, agent_factory, lang: str, mode: str, context: dict, 
         if not calls:
             if thoughts:
                 yield {"type": "thinking", "text": "\n\n".join(thoughts)[-6000:], "seconds": round(_t.time() - t0, 1)}
-            answer = msg.get("content") or ""
+            answer = (msg.get("content") or "").strip()
+            if not answer:   # модель израсходовала лимит на размышления — короткий итог без размышлений
+                messages.append({"role": "user", "content": "Сформулируй итоговый ответ кратко по уже полученным данным."})
+                answer = (llm.chat(messages, strong=True, tools=None, mode="fast").get("content") or "").strip() \
+                    or "Не удалось сформулировать ответ — попробуйте режим «Средний» или сузьте вопрос."
             _remember(history, question, answer)
             yield {"type": "answer", "text": answer}
             return

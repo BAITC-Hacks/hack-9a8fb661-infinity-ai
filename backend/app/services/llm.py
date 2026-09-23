@@ -35,18 +35,19 @@ def provider() -> str:
     return " → ".join(names[p] for p in chain) + " → rules"
 
 
-def _client(prov: str):
+def _client(prov: str, mode: str = "fast"):
     from openai import OpenAI
+    timeout = {"fast": 60, "medium": 150, "deep": 300}.get(mode, 90)
     if prov == "vllm":
-        return OpenAI(api_key="not-needed", base_url=config.LLM_BASE_URL, timeout=90, max_retries=1)
-    return OpenAI(api_key=config.OPENAI_API_KEY, timeout=60, max_retries=2)
+        return OpenAI(api_key="not-needed", base_url=config.LLM_BASE_URL, timeout=timeout, max_retries=1)
+    return OpenAI(api_key=config.OPENAI_API_KEY, timeout=timeout, max_retries=2)
 
 
 # Режимы как в ChatGPT/Claude: быстрый — без размышлений; средний — короткое; думающий — глубокое.
 MODES = {
     "fast":   {"max_tokens": 900,  "vllm": {"chat_template_kwargs": {"enable_thinking": False}}},
-    "medium": {"max_tokens": 3000, "vllm": {"reasoning_effort": "low"}},
-    "deep":   {"max_tokens": 9000, "vllm": {"reasoning_effort": "xhigh"}},
+    "medium": {"max_tokens": 4000, "vllm": {"reasoning_effort": "low"}},
+    "deep":   {"max_tokens": 12000, "vllm": {"reasoning_effort": "medium"}},
 }
 
 
@@ -86,7 +87,7 @@ def chat(messages, strong=False, tools=None, mode: str = "fast"):
             kwargs["max_completion_tokens"] = MODES[mode]["max_tokens"]
             kwargs["reasoning_effort"] = "high"
         try:
-            resp = _client(prov).chat.completions.create(**kwargs)
+            resp = _client(prov, mode).chat.completions.create(**kwargs)
         except Exception as e:
             last_err = e
             log.warning("llm %s недоступен (%s) — следующий провайдер", prov, e)

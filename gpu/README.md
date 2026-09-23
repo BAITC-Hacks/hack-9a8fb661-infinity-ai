@@ -2,7 +2,8 @@
 
 Необязательная часть: основной сценарий работает без GPU и без ключей (`USE_MOCK_LLM=true`).
 
-1. Brev → Create Environment → L40S 48 GB × 1, VM Mode, имя `infinity-llm`.
+1. Brev → Create Environment → H200 (или L40S 48 GB) × 1, VM Mode, имя `infinity-llm`.
+   Скрипт сам выбирает модель: ≥80 GB видеопамяти — Qwen3.8-27B bf16, иначе FP8.
 2. `brev login`, затем скопировать и запустить скрипт:
    ```bash
    scp gpu/serve_vllm.sh infinity-llm:~ && ssh infinity-llm 'bash ~/serve_vllm.sh'

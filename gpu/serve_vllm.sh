@@ -2,8 +2,12 @@
 # Запуск open-weight LLM на GPU (NVIDIA Brev, L40S 48 GB) с OpenAI-совместимым API.
 # На машине Brev:  bash serve_vllm.sh      Локально:  brev port-forward infinity-llm -p 8001:8000
 set -euo pipefail
-# Qwen3.8-27B FP8 (~28 GB весов) — влезает в L40S 48 GB (Ada поддерживает FP8)
-MODEL="${MODEL:-Qwen/Qwen3.8-27B-FP8}"
+# Модель по объёму видеопамяти: >=80 GB (H100/H200) — полная bf16 (~55 GB),
+# иначе FP8 (~28 GB, L40S 48 GB).
+VRAM_GB=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | head -1 | awk '{print int($1/1024)}')
+if [ "${VRAM_GB:-0}" -ge 80 ]; then DEFAULT_MODEL="Qwen/Qwen3.8-27B"; else DEFAULT_MODEL="Qwen/Qwen3.8-27B-FP8"; fi
+MODEL="${MODEL:-$DEFAULT_MODEL}"
+echo "GPU: ${VRAM_GB} GB -> $MODEL"
 PORT="${PORT:-8000}"
 
 python3 -m pip install -q --upgrade pip

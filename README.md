@@ -179,6 +179,20 @@ docker compose up --build                  # UI: http://localhost:3000 (expert /
 - **Показ команде в локальной сети:** `cd frontend && npm run serve:lan` → `http://<IP>:5180`
   (в Wi-Fi хакатона может мешать изоляция клиентов).
 
+## LLM агента: правила, OpenAI API, NVIDIA H200
+Прогноз от LLM не зависит; LLM нужна только для диалога, ИИ-анализа выпуска и сводок. Три режима, переключение через `.env`:
+| Режим | Что нужно | Настройка |
+|---|---|---|
+| **Правила** (по умолчанию, для проверки) | ничего | `USE_MOCK_LLM=true` — агент отвечает по тем же инструментам на реальных данных |
+| **OpenAI API** | свой ключ | `USE_MOCK_LLM=false`, `OPENAI_API_KEY=sk-…` (модели: `gpt-4o-mini` / `gpt-4o` / `o4-mini` для режима «Думающий») |
+| **Своя модель на NVIDIA H200** | GPU в NVIDIA Brev | `USE_MOCK_LLM=false`, `LLM_BASE_URL=http://localhost:8001/v1`, `VLLM_MODEL=qwen` |
+
+Во время хакатона агент работал на **Qwen3.8-27B (bf16) на NVIDIA H200 141 GB** в NVIDIA Brev: vLLM в Docker
+(`gpu/serve_vllm.sh`), OpenAI-совместимый API, вызов инструментов `qwen3_xml`, режимы размышления через
+`reasoning_effort`, туннель `brev port-forward` / `ssh -L 8001:localhost:8000`. Скрипт сам выбирает полную или FP8-версию
+по объёму видеопамяти (L40S 48 GB — FP8). При недоступности модели цепочка переходит vLLM → OpenAI → правила
+автоматически, без ошибки для пользователя. Подробно — `gpu/README.md`.
+
 ## Вход и безопасность
 Интерфейс и API закрыты входом: логин/пароль из `.env` (`APP_LOGIN`, `APP_PASSWORD`), сессия —
 подписанная HMAC-SHA256 cookie (HttpOnly, SameSite=Strict, 12 ч). Защита от перебора: 5 попыток

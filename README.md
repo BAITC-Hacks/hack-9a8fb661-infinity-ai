@@ -131,6 +131,8 @@ cd frontend && npm install && npm run dev   # UI: http://localhost:5173
 Интерфейс и API закрыты входом: логин/пароль из `.env` (`APP_LOGIN`, `APP_PASSWORD`), сессия —
 подписанная HMAC-SHA256 cookie (HttpOnly, SameSite=Strict, 12 ч). Защита от перебора: 5 попыток
 в минуту с IP. Заголовки `X-Frame-Options: DENY`, `nosniff`. Документация API скрыта при включённом входе.
+**Доступ для команды в локальной сети:** `cd frontend && npm run serve:lan` — наружу открыт только порт 5180
+(собранная минифицированная версия без исходников и source maps); API на 127.0.0.1:8010 доступен только через прокси и только после входа.
 **Для проверки экспертами:** в `.env.example` и `docker-compose.yml` — `expert` / `infinity-demo`.
 Пустой `APP_PASSWORD` отключает вход (локальная разработка, тесты). Пароль ClickHouse — только в `.env`.
 

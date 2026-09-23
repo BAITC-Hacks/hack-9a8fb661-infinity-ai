@@ -18,7 +18,7 @@ export function AnalogsPanel({ a, loading }: { a: Analogs | null; loading: boole
             <div className="mb-2 rounded-md bg-sunk px-3 py-2 text-[12px]">
               <span className="text-mute">{t('mem_alt')}: </span>
               <b className="num font-mono">{a.energy_mwh.mean} {t('mwh')}</b>
-              <span className="num text-mute"> · Q10–Q90 {a.energy_mwh.q10}–{a.energy_mwh.q90}</span>
+              <span className="num text-mute"> · {t('mem_range')} {a.energy_mwh.q10}–{a.energy_mwh.q90}</span>
             </div>
             <ul className="space-y-1">
               {a.days.slice(0, 6).map((d, i) => (
@@ -28,7 +28,6 @@ export function AnalogsPanel({ a, loading }: { a: Analogs | null; loading: boole
                   <span className="num text-right text-mute">{d.energy_mwh} {t('mwh')} · {d.mean_wind} м/с</span>
                 </li>))}
             </ul>
-            <p className="mt-2 text-[11px] text-mute">{t('mem_desc')}</p>
           </>)}
       </div>
     </section>

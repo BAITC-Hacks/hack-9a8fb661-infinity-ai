@@ -186,7 +186,7 @@ function Tip({ active, payload, c, t }: TipProps) {
     <div className="rounded-lg border border-line bg-panel px-3 py-2 text-[12px] shadow-lg">
       <div className="mb-1 text-mute">{ddmm(String(d.time))} {hhmm(String(d.time))}</div>
       {row(t('k_forecast'), `${fmt(d.fc as number, 2)} ${t('mw')}`, c.blue)}
-      {d.lo != null && row('Q10–Q90', `${fmt(d.lo as number, 2)}–${fmt(d.hi as number, 2)} ${t('mw')}`, c.blue)}
+      {d.lo != null && row(t('range_short'), `${fmt(d.lo as number, 2)}–${fmt(d.hi as number, 2)} ${t('mw')}`, c.blue)}
       {d.fact != null && row(t('k_fact'), `${fmt(d.fact as number, 2)} ${t('mw')}`, c.data)}
       {d.prev0 != null && row(t('pp_prev'), `${fmt(d.prev0 as number, 2)} ${t('mw')}`, c.curve)}
       {d.wind != null && row(t('layer_wind'), fmt(d.wind as number, 1), c.mute)}

@@ -66,6 +66,18 @@ ORDER BY (object_id, first_missing)"""
 GAP_COLS = ["object_id", "last_before", "first_missing", "last_missing", "first_after",
             "missing_slots", "missing_hours"]
 
+KNOWLEDGE_DDL = """CREATE TABLE IF NOT EXISTS knowledge_chunks
+(
+    id String,
+    source LowCardinality(String),
+    chunk UInt32,
+    text String,
+    vector Array(Float32) COMMENT 'Эмбеддинг: TF-IDF char n-grams + SVD, 128 измерений',
+    trained_at DateTime('UTC') DEFAULT now()
+)
+ENGINE = ReplacingMergeTree(trained_at)
+ORDER BY id"""
+
 OBJECT_COLS = ["object_id", "name", "latitude", "longitude", "rated_power_mw", "tower_height_m",
                "rotor_diameter_m", "turbine_model", "metadata_source_url"]
 
@@ -74,6 +86,7 @@ CH_SCHEMA = [
     *WIND_OBJECTS_MIGRATE,
     WIND_ACTUALS_DDL,
     WIND_GAPS_DDL,
+    KNOWLEDGE_DDL,
     """CREATE TABLE IF NOT EXISTS runs (id UInt64, created_at DateTime('UTC'), issue_date Date,
        mode LowCardinality(String), status LowCardinality(String), model_trained_until String,
        weather_signature Float64, summary String) ENGINE = MergeTree ORDER BY (issue_date, id)""",
@@ -156,6 +169,17 @@ class ClickHouseStore(Store):
         for c in GAP_COLS[1:5]:
             df[c] = pd.to_datetime(df[c]).dt.tz_localize("Etc/GMT-5")
         self.cli.insert_df("wind_actuals_gaps", df[GAP_COLS], column_names=GAP_COLS)
+
+    def store_knowledge(self, rows: list[dict]):
+        self.cli.command("TRUNCATE TABLE knowledge_chunks")
+        self.cli.insert("knowledge_chunks", [[r["id"], r["source"], int(r["chunk"]), r["text"], r["vector"]]
+                                             for r in rows],
+                        column_names=["id", "source", "chunk", "text", "vector"])
+
+    def knowledge_search(self, vector: list[float], k: int = 3):
+        return self._rows("SELECT source, text, 1 - cosineDistance(vector, {v:Array(Float32)}) AS score"
+                          " FROM knowledge_chunks FINAL ORDER BY score DESC LIMIT {k:UInt8}",
+                          {"v": vector, "k": k})
 
     def gaps(self) -> pd.DataFrame:
         df = self.cli.query_df(f"SELECT {', '.join(GAP_COLS)} FROM wind_actuals_gaps FINAL"

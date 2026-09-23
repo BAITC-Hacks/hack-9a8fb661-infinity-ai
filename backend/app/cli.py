@@ -26,6 +26,7 @@ def main(argv=None):
     f.add_argument("--force", action="store_true")
     sub.add_parser("export", help="outputs/forecasts.csv и metrics.json из БД")
     sub.add_parser("ensure", help="бэктест, только если хранилище пустое (для docker)")
+    sub.add_parser("train-embeddings", help="обучить векторный индекс базы знаний агента")
     a = p.parse_args(argv)
 
     setup_logging()
@@ -49,6 +50,10 @@ def main(argv=None):
             print("storage already has forecasts — skip backtest")
         else:
             main(["backtest"])
+        main(["train-embeddings"])
+    elif a.cmd == "train-embeddings":
+        from app.services.knowledge import get_index
+        print(get_index().train())
     elif a.cmd == "export":
         export_all()
 

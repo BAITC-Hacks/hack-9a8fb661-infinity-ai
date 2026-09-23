@@ -13,7 +13,7 @@ from app.core import config
 from app.services import llm
 from app.services.export import overall_metrics
 
-MAX_STEPS = 5
+MAX_STEPS = 6
 DATE_RE = re.compile(r"(20\d\d)-(\d\d)-(\d\d)|(\d{1,2})[./](\d{1,2})(?:[./](20\d\d))?")
 
 TOOLS = [
@@ -41,16 +41,34 @@ TOOLS = [
         "parameters": {"type": "object", "properties": {
             "issue_date": {"type": "string"}}, "required": ["issue_date"]}}},
     {"type": "function", "function": {
+        "name": "search_knowledge",
+        "description": "Поиск по базе знаний проекта (эмбеддинги): паспорт станции и турбин, методика "
+                       "прогноза, данные, метрики, инструкции. Для вопросов «что/как/почему устроено».",
+        "parameters": {"type": "object", "properties": {
+            "query": {"type": "string"}}, "required": ["query"]}}},
+    {"type": "function", "function": {
         "name": "run_forecast",
         "description": "Запустить агентный цикл прогноза для даты выпуска (пересчёт).",
         "parameters": {"type": "object", "properties": {
             "issue_date": {"type": "string"}}, "required": ["issue_date"]}}},
 ]
 
-SYSTEM = ("Ты инженер-агент прогнозирования выработки ВЭС «Нурлы» (2 турбины Goldwind 2.5 МВт, "
-          "Алматинская обл.). Отвечай кратко, опираясь только на данные инструментов. Мощность — "
-          "доля номинала 0..1 (1 = 2.5 МВт на турбину, 5 МВт станция). Время в данных — UTC "
-          "(местное = UTC+5). Даты выпуска: 2026-01-01..2026-02-27. Язык ответа: {lang}.")
+SYSTEM = (
+    "Ты — инженер-агент диспетчерского центра ВЭС «Нурлы» (2 турбины Goldwind GW109/2500 по 2,5 МВт, "
+    "станция 5 МВт, Алматинская область). Твоя задача — помогать диспетчеру понимать прогноз выработки "
+    "на 24–48 часов и риски.\n"
+    "Правила:\n"
+    "1. Никогда не выдумывай числа: любые цифры бери только из инструментов. Если данных нет — скажи об этом.\n"
+    "2. Выбор инструмента: прогноз на дату → get_forecast; «что ожидается / риски / когда упадёт или вырастет» → "
+    "get_alerts; «почему» и решения агента → get_agent_log; точность и качество → get_metrics; устройство "
+    "станции, турбин, методика, данные → search_knowledge; «пересчитай» → run_forecast. Можно вызывать несколько.\n"
+    "3. Мощность отвечай в МВт (доля номинала × 2,5 МВт на турбину, × 5 МВт для станции), время — по Алматы "
+    "(UTC+5), даты в формате ДД.ММ. Даты выпуска доступны с 01.01.2026 по 27.02.2026; факт есть только до 31.01.\n"
+    "4. Отвечай кратко и по делу: 2–5 предложений или короткий список, без вступлений и повторов вопроса. "
+    "Сначала вывод, потом обоснование цифрами.\n"
+    "5. Если вопрос про будущее без даты — используй последний выпуск, о котором идёт речь, или попроси дату.\n"
+    "Язык ответа: {lang}."
+)
 LANG_NAME = {"ru": "русский", "kk": "казахский (қазақша)"}
 
 KK = {  # шаблоны mock-ответов на казахском
@@ -101,6 +119,9 @@ def call_tool(name, args, agent_factory):
         from app.services.alerts import build_alerts
         return [{k: a[k] for k in ("kind", "level", "start", "end", "text")}
                 for a in build_alerts(validate_date(args["issue_date"]))]
+    if name == "search_knowledge":
+        from app.services.knowledge import get_index
+        return get_index().search(str(args.get("query", ""))[:500])
     if name == "run_forecast":
         run = agent_factory().run_issue(validate_date(args["issue_date"]), force=True)
         return {"run_id": run["id"], "status": run["status"], "summary": run["summary"]}
@@ -131,7 +152,7 @@ def _mock_plan(q):
         plan.append(("get_agent_log", {"issue_date": date}))
     if date and not any(p[0] == "get_forecast" for p in plan):
         plan.append(("get_forecast", {"issue_date": date}))
-    return plan or [("get_metrics", {})]
+    return plan or [("search_knowledge", {"query": q})]
 
 
 def _mock_answer(results, lang="ru"):
@@ -168,27 +189,42 @@ def _mock_answer(results, lang="ru"):
                                                "пересчётов и тревог не было") + ".")
         elif name == "get_alerts":
             parts.append("Уведомления: " + (" ".join(a["text"] for a in res[:4]) if res else "событий нет."))
+        elif name == "search_knowledge":
+            from app.services.knowledge import answer_from_chunks
+            parts.append(answer_from_chunks("", res))
         elif name == "run_forecast":
             parts.append(f"Пересчёт выполнен (run {res['run_id']}, статус {res['status']}).")
     return "[mock] " + " ".join(parts)
 
 
+def _ask_mock(question, agent_factory, lang):
+    results = []
+    for name, args in _mock_plan(question):
+        yield {"type": "tool_call", "name": name, "args": args}
+        try:
+            res = call_tool(name, args, agent_factory)
+        except Exception as e:
+            res = {"error": str(e)}
+        results.append((name, res))
+        yield {"type": "tool_result", "name": name, "result": res}
+    yield {"type": "answer", "text": _mock_answer(results, lang)}
+
+
 def ask(question: str, agent_factory, lang: str = "ru"):
-    """Генератор событий: {"type": "tool_call"|"tool_result"|"answer"|"error", ...}."""
+    """Генератор событий: {"type": "tool_call"|"tool_result"|"answer"|"error", ...}.
+    LLM недоступна (сеть, GPU выключен) — тот же сценарий на правилах (mock), без падения."""
     lang = lang if lang in LANG_NAME else "ru"
     if llm.is_mock():
-        results = []
-        for name, args in _mock_plan(question):
-            yield {"type": "tool_call", "name": name, "args": args}
-            try:
-                res = call_tool(name, args, agent_factory)
-            except Exception as e:
-                res = {"error": str(e)}
-            results.append((name, res))
-            yield {"type": "tool_result", "name": name, "result": res}
-        yield {"type": "answer", "text": _mock_answer(results, lang)}
+        yield from _ask_mock(question, agent_factory, lang)
         return
+    try:
+        yield from _ask_llm(question, agent_factory, lang)
+    except RuntimeError as e:
+        yield {"type": "tool_result", "name": "llm", "result": {"fallback": str(e)}}
+        yield from _ask_mock(question, agent_factory, lang)
 
+
+def _ask_llm(question: str, agent_factory, lang: str):
     messages = [{"role": "system", "content": SYSTEM.format(lang=LANG_NAME[lang])},
                 {"role": "user", "content": question}]
     for _ in range(MAX_STEPS):

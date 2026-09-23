@@ -53,8 +53,7 @@ function LeafletMap({ objs, spinSec, direction }: { objs: WindObject[]; spinSec:
   const c = usePalette()
   useEffect(() => {
     if (!ref.current || map.current) return
-    const m = L.map(ref.current, { zoomControl: true, attributionControl: true }).setView([43.6442, 78.5372], 16)
-    m.attributionControl.setPrefix('')
+    const m = L.map(ref.current, { zoomControl: true, attributionControl: false }).setView([43.6442, 78.5372], 16)
     map.current = m
     return () => { m.remove(); map.current = null }
   }, [])
@@ -62,8 +61,8 @@ function LeafletMap({ objs, spinSec, direction }: { objs: WindObject[]; spinSec:
     const m = map.current; if (!m) return
     base.current?.remove()
     base.current = sat
-      ? L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, attribution: 'Esri' })
-      : L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19, attribution: 'CARTO · OSM' })
+      ? L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, attribution: '' })
+      : L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19, attribution: '' })
     base.current.addTo(m)
   }, [sat])
   useEffect(() => {
@@ -172,6 +171,11 @@ function Scene({ objs, wind, direction, power }: { objs: WindObject[]; wind: num
     for (let i = 0; i < 3; i++) { const tr = new THREE.Mesh(new THREE.BoxGeometry(4, 4, 4), new THREE.MeshStandardMaterial({ color: '#6b7280', roughness: 0.7 })); tr.position.set(bx - 22 + i * 8, noise(bx, bz) + 2, bz + 14); tr.castShadow = true; scene.add(tr) }
     const fence = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(72, 2.2, 52)), new THREE.LineBasicMaterial({ color: '#8d8a80' })); fence.position.set(bx, noise(bx, bz) + 1.1, bz); scene.add(fence)
 
+    // ветер: поток частиц-штрихов, летящих по направлению ветра со скоростью, пропорциональной прогнозу
+    const N_WIND = 900
+    const streaks = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.35, 0.35), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.55 }), N_WIND)
+    const wp = Array.from({ length: N_WIND }, () => new THREE.Vector3((Math.random() - 0.5) * 1400, 15 + Math.random() * 150, (Math.random() - 0.5) * 1400))
+    scene.add(streaks)
     const white = new THREE.MeshStandardMaterial({ color: 0xf1f3f5, roughness: 0.55 })
     const accent = new THREE.MeshStandardMaterial({ color: new THREE.Color(c.blue), roughness: 0.5 })
     const rotors: THREE.Group[] = [], nacelles: THREE.Group[] = []
@@ -201,6 +205,18 @@ function Scene({ objs, wind, direction, power }: { objs: WindObject[]; wind: num
       const omega = w < 2.5 ? 0 : Math.min(2.2, 0.28 * w) * (0.6 + 0.4 * Math.min(1, pw + 0.2))
       rotors.forEach((h) => { h.rotation.x += omega * dt })
       nacelles.forEach((n) => { n.rotation.y += ((-(dir * Math.PI) / 180 - n.rotation.y) * Math.min(1, dt * 2)) })
+      // ветер дует ИЗ направления dir (метео-конвенция): вектор движения частиц — противоположный
+      const rad = (dir * Math.PI) / 180, vx = -Math.sin(rad) * w * 6, vz = Math.cos(rad) * w * 6
+      const yaw = Math.atan2(vx, vz)
+      const len = Math.max(2, w * 2.2)
+      wp.forEach((v, i) => {
+        v.x += vx * dt; v.z += vz * dt
+        if (v.x > 700) v.x -= 1400; if (v.x < -700) v.x += 1400; if (v.z > 700) v.z -= 1400; if (v.z < -700) v.z += 1400
+        m4.compose(v, new THREE.Quaternion().setFromEuler(new THREE.Euler(0, yaw + Math.PI / 2, 0)), new THREE.Vector3(len, 1, 1))
+        streaks.setMatrixAt(i, m4)
+      })
+      streaks.instanceMatrix.needsUpdate = true
+      ;(streaks.material as THREE.MeshBasicMaterial).opacity = w < 2.5 ? 0.12 : Math.min(0.7, 0.2 + w * 0.05)
       const a = now / 16000
       camera.position.set(-420 * Math.cos(a) + 60, 140 + 30 * Math.sin(a * 1.3), 420 * Math.sin(a) + 20); camera.lookAt(30, 60, 10)
       renderer.render(scene, camera); raf = requestAnimationFrame(tick)

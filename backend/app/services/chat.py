@@ -13,7 +13,7 @@ from app.core import config
 from app.services import llm
 from app.services.export import overall_metrics
 
-MAX_STEPS = 6
+MAX_STEPS = 8
 DATE_RE = re.compile(r"(20\d\d)-(\d\d)-(\d\d)|(\d{1,2})[./](\d{1,2})(?:[./](20\d\d))?")
 
 TOOLS = [
@@ -40,6 +40,15 @@ TOOLS = [
                        "риск остановки по ветру, обледенение, решения агента.",
         "parameters": {"type": "object", "properties": {
             "issue_date": {"type": "string"}}, "required": ["issue_date"]}}},
+    {"type": "function", "function": {
+        "name": "get_period_summary",
+        "description": "Сводка за диапазон дат выпуска одним вызовом: по каждому дню энергия за сутки (МВт·ч), "
+                       "средняя/пиковая/минимальная мощность, число и самые сильные уведомления (резкие падения/рост, "
+                       "штиль, мороз). Используй для вопросов про неделю, месяц, «весь февраль», графики ремонтов.",
+        "parameters": {"type": "object", "properties": {
+            "start": {"type": "string", "description": "YYYY-MM-DD"},
+            "end": {"type": "string", "description": "YYYY-MM-DD"},
+            "turbine": {"type": "string", "enum": ["STATION", "T1", "T2"]}}, "required": ["start", "end"]}}},
     {"type": "function", "function": {
         "name": "find_analogs",
         "description": "Память агента: похожие прошлые ситуации по 48-часовому прогнозу погоды (только до даты "
@@ -69,7 +78,8 @@ SYSTEM = (
     "1. Никогда не выдумывай числа: любые цифры бери только из инструментов. Если данных нет — скажи об этом.\n"
     "2. Выбор инструмента: прогноз на дату → get_forecast; «что ожидается / риски / когда упадёт или вырастет» → "
     "get_alerts; «почему» и решения агента → get_agent_log; точность и качество → get_metrics; устройство "
-    "станции, турбин, методика, данные → search_knowledge; «можно ли доверять / бывало ли / насколько уверен» → "
+    "станции, турбин, методика, данные → search_knowledge; неделя, месяц, диапазон дат, «весь февраль», "
+    "график ремонтов на несколько дней → get_period_summary ОДНИМ вызовом (не перебирай даты по одной); «можно ли доверять / бывало ли / насколько уверен» → "
     "find_analogs (похожие прошлые дни и их факт); «пересчитай» → run_forecast. Можно вызывать несколько.\n"
     "3. Мощность отвечай в МВт (доля номинала × 2,5 МВт на турбину, × 5 МВт для станции), время — по Алматы "
     "(UTC+5), даты в формате ДД.ММ. Даты выпуска доступны с 01.01.2026 по 27.02.2026; факт есть только до 31.01.\n"
@@ -136,6 +146,8 @@ def call_tool(name, args, agent_factory):
         from app.services.alerts import build_alerts
         return [{k: a[k] for k in ("kind", "level", "start", "end", "text")}
                 for a in build_alerts(validate_date(args["issue_date"]))]
+    if name == "get_period_summary":
+        return _period_summary(validate_date(args["start"]), validate_date(args["end"]), args.get("turbine", "STATION"))
     if name == "find_analogs":
         from app.services.analogs import find_analogs
         r = find_analogs(agent_factory().f, validate_date(args["issue_date"]), args.get("turbine", "STATION"))
@@ -148,6 +160,29 @@ def call_tool(name, args, agent_factory):
         run = agent_factory().run_issue(validate_date(args["issue_date"]), force=True)
         return {"run_id": run["id"], "status": run["status"], "summary": run["summary"]}
     raise ValueError(f"неизвестный инструмент {name}")
+
+
+def _period_summary(start: str, end: str, turbine: str = "STATION") -> dict:
+    from app.services.alerts import build_alerts
+    store = db.get_store()
+    rated = 5.0 if turbine == "STATION" else 2.5
+    days = []
+    for d in pd.date_range(min(start, end), max(start, end), freq="D"):
+        ds = str(d.date())
+        run = store.latest_run(ds)
+        if not run:
+            continue
+        fc = store.forecasts(run["id"], turbine)
+        p = fc[fc["lead_hours"].astype(int) <= 24]["p_hat"].astype(float) * rated
+        al = build_alerts(ds, turbine)
+        days.append({"issue_date": ds, "energy_24h_mwh": round(float(p.sum()), 1), "mean_mw": round(float(p.mean()), 2),
+                     "peak_mw": round(float(p.max()), 2), "min_mw": round(float(p.min()), 2),
+                     "alerts": len(al), "top_alerts": [a["text"] for a in al[:2]]})
+    tot = sum(x["energy_24h_mwh"] for x in days)
+    return {"turbine": turbine, "days": days, "total_energy_mwh": round(tot, 1),
+            "best_day": max(days, key=lambda x: x["energy_24h_mwh"])["issue_date"] if days else None,
+            "worst_day": min(days, key=lambda x: x["energy_24h_mwh"])["issue_date"] if days else None,
+            "note": "Энергия — первые 24 ч каждого выпуска (то, что отправляется диспетчеру на сутки)."}
 
 
 def _extract_date(q):
@@ -375,4 +410,10 @@ def _ask_llm(question: str, agent_factory, lang: str, mode: str, context: dict, 
             yield {"type": "tool_result", "name": name, "result": res}
             messages.append({"role": "tool", "tool_call_id": c["id"],
                              "content": json.dumps(res, ensure_ascii=False, default=str)[:6000]})
-    yield {"type": "answer", "text": "Достигнут лимит шагов агента."}
+    # лимит шагов: итоговый ответ по уже собранным данным, без новых вызовов
+    messages.append({"role": "user", "content": "Данных достаточно. Дай итоговый ответ по уже полученным результатам "
+                                                "инструментов, без новых вызовов."})
+    msg = llm.chat(messages, strong=True, tools=None, mode="fast")
+    answer = msg.get("content") or "Не удалось завершить анализ — сузьте период или вопрос."
+    _remember(history, question, answer)
+    yield {"type": "answer", "text": answer}

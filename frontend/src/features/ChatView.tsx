@@ -64,7 +64,16 @@ export function ChatView({ msgs, busy, ask, mode, setMode, reset, compact, sessi
           </div>
         ) : (
           <div key={m.id} className="pop space-y-1.5">
-            {m.steps.map((s, i) => <div key={i} className="flex items-center gap-2 text-[13px] text-mute">{s.done ? <Check size={14} className="text-good" /> : <Loader2 size={14} className="animate-spin text-blue" />}{s.label}</div>)}
+            {m.steps.length > 4 ? (
+              <details className="group text-[13px] text-mute">
+                <summary className="flex cursor-pointer list-none items-center gap-2">
+                  {m.steps.every((s) => s.done) ? <Check size={14} className="text-good" /> : <Loader2 size={14} className="animate-spin text-blue" />}
+                  <ChevronRight size={12} className="transition-transform group-open:rotate-90" />{t('steps_n', { n: m.steps.length })}
+                  {!m.steps.every((s) => s.done) && <span className="truncate text-text">· {m.steps[m.steps.length - 1].label}</span>}
+                </summary>
+                <div className="mt-1 max-h-40 space-y-0.5 overflow-y-auto pl-6">{m.steps.map((s, i) => <div key={i} className="flex items-center gap-2">{s.done ? <Check size={12} className="text-good" /> : <Loader2 size={12} className="animate-spin text-blue" />}{s.label}</div>)}</div>
+              </details>
+            ) : m.steps.map((s, i) => <div key={i} className="flex items-center gap-2 text-[13px] text-mute">{s.done ? <Check size={14} className="text-good" /> : <Loader2 size={14} className="animate-spin text-blue" />}{s.label}</div>)}
             {m.thinking && (
               <details className="group rounded-lg border border-line/70 bg-sunk px-3 py-1.5 text-[12px] text-mute">
                 <summary className="flex cursor-pointer list-none items-center gap-1.5"><Brain size={13} className="text-curve" /><ChevronRight size={12} className="transition-transform group-open:rotate-90" />{t('thought', { s: m.thinking.seconds })}</summary>

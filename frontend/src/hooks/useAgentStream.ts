@@ -14,7 +14,7 @@ const newSession = () => Math.random().toString(36).slice(2, 12)
 
 function stepLabel(d: Dict, name: string, args: Record<string, unknown>): string {
   const date = typeof args.issue_date === 'string' ? ruDate(args.issue_date) : ''
-  const key = ({ get_forecast: 's_forecast', get_metrics: 's_metrics', get_agent_log: 's_log', run_forecast: 's_run', get_alerts: 's_alerts', search_knowledge: 's_kb' } as const)[name] ?? 's_other'
+  const key = ({ get_forecast: 's_forecast', get_metrics: 's_metrics', get_agent_log: 's_log', run_forecast: 's_run', get_alerts: 's_alerts', search_knowledge: 's_kb', get_period_summary: 's_period', find_analogs: 's_analogs' } as const)[name] ?? 's_other'
   return ((d as Record<string, unknown>)[key] as string ?? d.s_other).replace('{d}', date)
 }
 

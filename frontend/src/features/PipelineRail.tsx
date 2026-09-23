@@ -43,7 +43,8 @@ export function PipelineRail({ log, issueDate, live, busy, thinking }: { log: Ag
             {busy && thinking && <span className="ml-auto flex items-center gap-1 text-[11px] text-curve"><Brain size={12} className="animate-pulse" />{t('m_deep_d')}</span>}
           </div>
           <ol className="space-y-1 p-3">
-            {(live ?? []).map((s, i) => (
+            {(live ?? []).length > 5 && <li className="text-[11px] text-mute">{t('steps_n', { n: (live ?? []).length })} · {t('steps_more', { n: (live ?? []).length - 5 })} ↑</li>}
+            {(live ?? []).slice(-5).map((s, i) => (
               <li key={i} className="pop flex items-center gap-2 text-[12.5px]" style={{ animationDelay: `${i * 60}ms` }}>
                 {s.done ? <Check size={13} className="shrink-0 text-good" /> : <Loader2 size={13} className="shrink-0 animate-spin text-blue" />}
                 <span className={s.done ? 'text-mute' : 'text-text'}>{s.label}</span>

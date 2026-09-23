@@ -31,3 +31,11 @@ def data_quality():
     """Сводка пропусков в факте (wind_actuals_gaps): по турбинам, по месяцам, самые длинные."""
     from app.services.quality import summary
     return summary()
+
+
+@router.get("/analogs")
+def analogs(issue_date: str = Depends(__import__("app.api.deps", fromlist=["issue_date_param"]).issue_date_param),
+            turbine: TurbineId = "STATION"):
+    """Похожие исторические ситуации (Analog Ensemble) и их фактическая выработка."""
+    from app.services.analogs import find_analogs
+    return find_analogs(get_agent().f, issue_date, turbine)

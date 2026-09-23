@@ -41,6 +41,14 @@ TOOLS = [
         "parameters": {"type": "object", "properties": {
             "issue_date": {"type": "string"}}, "required": ["issue_date"]}}},
     {"type": "function", "function": {
+        "name": "find_analogs",
+        "description": "Память агента: похожие прошлые ситуации по 48-часовому прогнозу погоды (только до даты "
+                       "выпуска), их фактическая выработка, разброс Q10–Q90 и альтернативный прогноз энергии. "
+                       "Для вопросов «можно ли доверять», «бывало ли такое», «насколько уверен».",
+        "parameters": {"type": "object", "properties": {
+            "issue_date": {"type": "string"},
+            "turbine": {"type": "string", "enum": ["STATION", "T1", "T2"]}}, "required": ["issue_date"]}}},
+    {"type": "function", "function": {
         "name": "search_knowledge",
         "description": "Поиск по базе знаний проекта (эмбеддинги): паспорт станции и турбин, методика "
                        "прогноза, данные, метрики, инструкции. Для вопросов «что/как/почему устроено».",
@@ -61,7 +69,8 @@ SYSTEM = (
     "1. Никогда не выдумывай числа: любые цифры бери только из инструментов. Если данных нет — скажи об этом.\n"
     "2. Выбор инструмента: прогноз на дату → get_forecast; «что ожидается / риски / когда упадёт или вырастет» → "
     "get_alerts; «почему» и решения агента → get_agent_log; точность и качество → get_metrics; устройство "
-    "станции, турбин, методика, данные → search_knowledge; «пересчитай» → run_forecast. Можно вызывать несколько.\n"
+    "станции, турбин, методика, данные → search_knowledge; «можно ли доверять / бывало ли / насколько уверен» → "
+    "find_analogs (похожие прошлые дни и их факт); «пересчитай» → run_forecast. Можно вызывать несколько.\n"
     "3. Мощность отвечай в МВт (доля номинала × 2,5 МВт на турбину, × 5 МВт для станции), время — по Алматы "
     "(UTC+5), даты в формате ДД.ММ. Даты выпуска доступны с 01.01.2026 по 27.02.2026; факт есть только до 31.01.\n"
     "4. Отвечай кратко и по делу: 2–5 предложений или короткий список, без вступлений и повторов вопроса. "
@@ -127,6 +136,11 @@ def call_tool(name, args, agent_factory):
         from app.services.alerts import build_alerts
         return [{k: a[k] for k in ("kind", "level", "start", "end", "text")}
                 for a in build_alerts(validate_date(args["issue_date"]))]
+    if name == "find_analogs":
+        from app.services.analogs import find_analogs
+        r = find_analogs(agent_factory().f, validate_date(args["issue_date"]), args.get("turbine", "STATION"))
+        r.pop("hourly", None)
+        return r
     if name == "search_knowledge":
         from app.services.knowledge import get_index
         return get_index().search(str(args.get("query", ""))[:500])
@@ -151,6 +165,7 @@ RELATIVE = {"сегодня": 0, "бүгін": 0, "завтра": 1, "ертең
 INTENTS = {  # стемы для нечёткого сравнения (опечатки, разговорные формы)
     "run": ("пересчит", "пересчет", "обнови", "запуст", "rerun", "қайтаесепте"),
     "metrics": ("качеств", "метрик", "точн", "ошибк", "погрешн", "дәл", "сапа", "қате", "mae"),
+    "analogs": ("похож", "аналог", "бывало", "доверя", "уверен", "ұқсас"),
     "alerts": ("уведомл", "алерт", "предупрежд", "риск", "опасн", "ескерту", "қауіп", "упадет", "упадёт", "падени", "рост", "скачк"),
     "log": ("почему", "пачему", "поч", "журнал", "решени", "неге", "себеп", "шешім", "зачем"),
     "knowledge": ("башн", "ротор", "турбин", "лопаст", "модел", "методик", "как работ", "паспорт", "мощност номин", "высот", "диаметр", "где наход", "қайда"),
@@ -197,6 +212,8 @@ def _mock_plan(q, context=None):
         plan.append(("run_forecast", {"issue_date": date}))
     if _has(ql, INTENTS["metrics"]):
         plan.append(("get_metrics", {}))
+    if _has(ql, INTENTS["analogs"]) and date:
+        plan.append(("find_analogs", {"issue_date": date}))
     if _has(ql, INTENTS["alerts"]) and date:
         plan.append(("get_alerts", {"issue_date": date}))
     wants_fc = _has(ql, ("прогноз", "прогназ", "выработ", "выробот", "мощност", "скок", "сколько", "будет", "болжам", "өндіріс"))
@@ -245,6 +262,10 @@ def _mock_answer(results, lang="ru"):
                                                "пересчётов и тревог не было") + ".")
         elif name == "get_alerts":
             parts.append("Уведомления: " + (" ".join(a["text"] for a in res[:4]) if res else "событий нет."))
+        elif name == "find_analogs" and "days" in res:
+            ds = ", ".join(f"{d['issue_date']} ({d['energy_mwh']} МВт·ч)" for d in res["days"][:4])
+            parts.append(f"Похожие прошлые ситуации ({res['k']} из {res['candidates']}): {ds}. По ним энергия за 48 ч "
+                         f"≈ {res['energy_mwh']['mean']} МВт·ч (разброс {res['energy_mwh']['q10']}–{res['energy_mwh']['q90']}).")
         elif name == "search_knowledge":
             from app.services.knowledge import answer_from_chunks
             parts.append(answer_from_chunks("", res))

@@ -2,9 +2,8 @@ import { useCallback, useMemo, useState } from 'react'
 import { api } from '../api/client'
 import { FilterBar, type Mode, type View } from '../components/layout/FilterBar'
 import { ChartPanel } from '../features/ChartPanel'
-import { EventsPanel } from '../features/EventsPanel'
+import { AlertsPanel } from '../features/AlertsPanel'
 import { KpiStrip } from '../features/KpiStrip'
-import { WhyCard } from '../features/WhyCard'
 import { useAsync } from '../hooks/useAsync'
 import { kpis } from '../lib/calc'
 import type { Ctx } from '../lib/ctx'
@@ -12,7 +11,7 @@ import type { Ctx } from '../lib/ctx'
 const shift = (d: string, n: number) => { const x = new Date(`${d}T00:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10) }
 
 export function ForecastPage({ ctx }: { ctx: Ctx }) {
-  const { turbine, setTurbine, issueDate, setIssueDate, tick, objs, ratedOf, llm } = ctx
+  const { turbine, setTurbine, issueDate, setIssueDate, tick, ratedOf, llm } = ctx
   const [horizon, setHorizon] = useState<24 | 48>(48)
   const [view, setView] = useState<View>('chart')
   const [mode, setMode] = useState<Mode>('eval')
@@ -25,7 +24,7 @@ export function ForecastPage({ ctx }: { ctx: Ctx }) {
   const prev = useAsync(() => Promise.all(Array.from({ length: nPrev }, (_, k) => shift(issueDate, -(k + 1))).filter((d) => d >= '2026-01-01')
     .map((d) => api.forecast(d, turbine).then((f) => ({ issue_date: d, rows: f.rows.map((r) => ({ target_time: r.target_time, p_hat: r.p_hat })) })).catch(() => null))), [issueDate, turbine, nPrev, tick])
   const passport = useAsync(() => api.passport(issueDate), [issueDate, tick])
-  const log = useAsync(() => api.log(issueDate), [issueDate, tick])
+  const alerts = useAsync(() => api.alerts(issueDate, turbine), [issueDate, turbine, tick])
 
   const rated = ratedOf(turbine)
   const rows = useMemo(() => (forecast.data?.rows ?? []).filter((r) => r.lead_hours <= horizon), [forecast.data, horizon])
@@ -39,13 +38,11 @@ export function ForecastPage({ ctx }: { ctx: Ctx }) {
         view={view} onView={setView} mode={mode} onMode={setMode} nPrev={nPrev} onNPrev={setNPrev} />
       <KpiStrip k={k} showFact={mode === 'eval'} />
       <main className="space-y-4 p-4">
-        <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
+        <div className="grid gap-4 2xl:grid-cols-[1fr_400px] xl:grid-cols-[1fr_360px]">
           <ChartPanel rows={rows} weather={weather.data ?? []} prevWeather={prevWeather.data ?? []} rated={rated} turbine={turbine} issueDate={issueDate} horizon={horizon}
             view={view} loading={forecast.loading} error={forecast.error} band={band} showFact={mode === 'eval'} prev={prevList} />
-          <EventsPanel rows={rows} weather={weather.data ?? []} log={log.data ?? []} rated={rated} passport={passport.data} llm={llm} />
+          <AlertsPanel alerts={alerts.data ?? []} summary={forecast.data?.run.summary ?? null} passport={passport.data} llm={llm} loading={alerts.loading} />
         </div>
-        <WhyCard rows={rows} weather={weather.data ?? []} run={forecast.data?.run ?? null} log={log.data ?? []} />
-        <div className="mono text-mute">{objs.length} × {objs[0]?.turbine_model ?? 'Goldwind GW109/2500'}</div>
       </main>
     </>
   )

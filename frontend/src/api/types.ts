@@ -119,3 +119,13 @@ export interface Passport {
   run: { id: number; created_at: string; status: string; weather_signature: number | null }
   diff_vs_previous: { prev_issue: string; overlap_hours: number; mean_abs_dp: number; mean_abs_dwind: number; prev_rows: { target_time: string; p_hat: number }[] } | null
 }
+
+export interface Alert {
+  kind: 'ramp_up' | 'ramp_down' | 'calm' | 'cutout' | 'icing' | 'confidence' | 'agent'
+  level: 'info' | 'warn' | 'critical'
+  start: string | null
+  end: string | null
+  text: string
+  delta_mw?: number
+  delta_pct?: number
+}

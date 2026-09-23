@@ -55,7 +55,7 @@ export function ChartPanel(p: Props) {
   const crumbs = [t('root'), t('station'), p.turbine === 'STATION' ? null : p.turbine === 'T1' ? t('t1') : t('t2')].filter(Boolean) as string[]
 
   const exportCsv = () => {
-    const head = `# ${t('station')} · ${p.turbine} · ${t('f_issue')} ${p.issueDate} · ${p.horizon}h · Open-Meteo previous runs\n`
+    const head = `# ${t('station')} · ${p.turbine} · ${t('f_issue')} ${p.issueDate} · ${p.horizon}h\n`
     const cols = ['time_utc', 'forecast_mw', 'fact_mw', 'deviation_mw', 'deviation_pct', 'wind_100m_ms', 'gust_10m_ms', 'temp_c']
     const body = data.map((d) => [d.time, fmt(d.fc as number, 3), fmt(d.fact as number, 3), fmt(d.dev as number, 3), fmt(d.devPct as number, 1), fmt(d.wind as number, 1), fmt(d.gust as number, 1), fmt(d.temp as number, 1)].join(',')).join('\n')
     const a = document.createElement('a')
@@ -73,7 +73,7 @@ export function ChartPanel(p: Props) {
     <section className="panel !p-0">
       <div className="flex h-[44px] items-center gap-3 border-b border-line bg-sunk px-3">
         <span className="text-[14px] font-semibold">{t('k_forecast')} · {crumbs[crumbs.length - 1]}</span>
-        <span className="mono text-mute">{t('f_issue')} {ruDate(p.issueDate)} · +{p.horizon} h · Open-Meteo</span>
+        <span className="mono text-mute">{t('f_issue')} {ruDate(p.issueDate)} · +{p.horizon} h</span>
         <span className="mono ml-auto hidden text-mute lg:inline">
           {t('tol', { tol: TOL_PCT })} · {iPeak >= 0 ? t('peak', { mw: fcs[iPeak].toFixed(2), t: hhmm(String(data[iPeak].time)) }) : '—'}
         </span>
@@ -121,7 +121,7 @@ export function ChartPanel(p: Props) {
                 {cbPrev && p.prev.length > 0 && <span className="flex items-center gap-1.5"><i className="h-0 w-4" style={{ borderTop: `1px dotted ${c.mute}` }} />{t('pp_prev')} ×{p.prev.length}</span>}
               </span>
             </div>
-            <div className="h-[340px] select-none">
+            <div className="h-[460px] select-none">
               <ResponsiveContainer>
                 <ComposedChart key={`${p.issueDate}${p.turbine}${p.horizon}`} data={shown} margin={{ top: 24, right: 12, left: -4, bottom: 0 }}
                   onMouseDown={(e) => e?.activeLabel != null && setSel({ a: Number(e.activeLabel), b: Number(e.activeLabel) })}
@@ -154,7 +154,7 @@ export function ChartPanel(p: Props) {
             </div>
             <div className="mt-1 border-t border-line pt-2">
               <div className="mono mb-1 text-mute">{t('dwind_title')}</div>
-              <div className="h-[110px]">
+              <div className="h-[120px]">
                 <ResponsiveContainer>
                   <BarChart data={dbars} margin={{ top: 14, right: 12, left: -4, bottom: 0 }} barCategoryGap="35%">
                     <CartesianGrid stroke={c.line} strokeDasharray="3 5" vertical={false} />

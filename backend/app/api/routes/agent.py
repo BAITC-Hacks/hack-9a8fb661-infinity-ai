@@ -4,7 +4,7 @@ import logging
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 
-from app.api.deps import get_agent, get_store, optional_issue_date
+from app.api.deps import get_agent, get_store, issue_date_param, optional_issue_date
 from app.schemas.agent import AgentLogEntry
 from app.services.chat import ask
 
@@ -21,6 +21,13 @@ def agent_log(issue_date: str | None = Depends(optional_issue_date),
             if r.get(k):
                 r[k] = json.loads(r[k])
     return rows
+
+
+@router.get("/alerts")
+def alerts(issue_date: str = Depends(issue_date_param), turbine: str = Query("STATION", pattern="^(STATION|T1|T2)$")):
+    """Уведомления агента: резкие изменения выработки (ΔP), штиль, отсечка, обледенение, решения агента."""
+    from app.services.alerts import build_alerts
+    return build_alerts(issue_date, turbine)
 
 
 @router.get("/agent")

@@ -35,6 +35,12 @@ TOOLS = [
         "parameters": {"type": "object", "properties": {
             "issue_date": {"type": "string"}}, "required": ["issue_date"]}}},
     {"type": "function", "function": {
+        "name": "get_alerts",
+        "description": "Уведомления по выпуску: резкие рост/падение мощности (окна времени), штиль, "
+                       "риск остановки по ветру, обледенение, решения агента.",
+        "parameters": {"type": "object", "properties": {
+            "issue_date": {"type": "string"}}, "required": ["issue_date"]}}},
+    {"type": "function", "function": {
         "name": "run_forecast",
         "description": "Запустить агентный цикл прогноза для даты выпуска (пересчёт).",
         "parameters": {"type": "object", "properties": {
@@ -91,6 +97,10 @@ def call_tool(name, args, agent_factory):
     if name == "get_agent_log":
         rows = db.get_store().agent_log(validate_date(args["issue_date"]), limit=30)
         return [{k: r[k] for k in ("tool", "reason", "result")} for r in rows]
+    if name == "get_alerts":
+        from app.services.alerts import build_alerts
+        return [{k: a[k] for k in ("kind", "level", "start", "end", "text")}
+                for a in build_alerts(validate_date(args["issue_date"]))]
     if name == "run_forecast":
         run = agent_factory().run_issue(validate_date(args["issue_date"]), force=True)
         return {"run_id": run["id"], "status": run["status"], "summary": run["summary"]}
@@ -115,6 +125,8 @@ def _mock_plan(q):
         plan.append(("run_forecast", {"issue_date": date}))
     if any(w in ql for w in ("качеств", "метрик", "mae", "точност", "ошибк", "дәл", "сапа", "қате")):
         plan.append(("get_metrics", {}))
+    if any(w in ql for w in ("уведомл", "алерт", "предупрежд", "риск", "ескерту", "қауіп")) and date:
+        plan.append(("get_alerts", {"issue_date": date}))
     if any(w in ql for w in ("почему", "журнал", "лог", "решени", "неге", "себеп", "шешім")) and date:
         plan.append(("get_agent_log", {"issue_date": date}))
     if date and not any(p[0] == "get_forecast" for p in plan):
@@ -154,6 +166,8 @@ def _mock_answer(results, lang="ru"):
             reasons = [r["reason"] for r in res if r["reason"]]
             parts.append("Решения агента: " + ("; ".join(reasons) if reasons else
                                                "пересчётов и тревог не было") + ".")
+        elif name == "get_alerts":
+            parts.append("Уведомления: " + (" ".join(a["text"] for a in res[:4]) if res else "событий нет."))
         elif name == "run_forecast":
             parts.append(f"Пересчёт выполнен (run {res['run_id']}, статус {res['status']}).")
     return "[mock] " + " ".join(parts)

@@ -7,7 +7,7 @@ import type { Ctx } from '../lib/ctx'
 import { useT } from '../lib/i18n'
 
 const TITLE: Record<string, string> = {
-  fetch_forecast: 'Погода Open-Meteo', prepare_features: 'Подготовка данных', train_model: 'Обучение модели',
+  fetch_forecast: 'Прогноз погоды', prepare_features: 'Подготовка данных', train_model: 'Обучение модели',
   predict: 'Прогноз', analyze: 'Анализ результата', evaluate: 'Оценка', replan: 'Перепланирование', report: 'Отчёт LLM', error: 'Ошибка',
 }
 

@@ -1,5 +1,5 @@
 import type {
-  AgentLogEntry, ForecastResponse, Passport, QualitySummary, WeatherPoint, WindObject, Health, MetricsResponse, PowerCurve, Run, TimelinePoint, TurbineId,
+  Alert, AgentLogEntry, ForecastResponse, Passport, QualitySummary, WeatherPoint, WindObject, Health, MetricsResponse, PowerCurve, Run, TimelinePoint, TurbineId,
 } from './types'
 
 export class ApiError extends Error {
@@ -31,6 +31,7 @@ export const api = {
   health: () => request<Health>('/api/health'),
   objects: () => request<WindObject[]>('/api/objects'),
   quality: () => request<QualitySummary>('/api/quality'),
+  alerts: (issue_date: string, turbine: TurbineId) => request<Alert[]>(`/api/alerts?${q({ issue_date, turbine })}`),
   passport: (issue_date: string) => request<Passport>(`/api/passport?${q({ issue_date })}`),
   weather: (issue_date: string) => request<WeatherPoint[]>(`/api/weather?${q({ issue_date })}`),
   issues: () => request<Run[]>('/api/issues'),

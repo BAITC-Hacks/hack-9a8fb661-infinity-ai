@@ -27,6 +27,7 @@ def main(argv=None):
     sub.add_parser("export", help="outputs/forecasts.csv и metrics.json из БД")
     sub.add_parser("ensure", help="бэктест, только если хранилище пустое (для docker)")
     sub.add_parser("train-embeddings", help="обучить векторный индекс базы знаний агента")
+    sub.add_parser("experiments", help="таблица доказательств: вклад каждого усложнения на январе")
     a = p.parse_args(argv)
 
     setup_logging()
@@ -51,6 +52,10 @@ def main(argv=None):
         else:
             main(["backtest"])
         main(["train-embeddings"])
+    elif a.cmd == "experiments":
+        from app.ml.experiments import run
+        for r in run()["rows"]:
+            print(f"{r['bucket']:7} {r['variant']:10} MAE {r['mae']:.4f}  vs persistence {r['vs_persistence']:+.1%}  bias {r['bias']:+.3f}")
     elif a.cmd == "train-embeddings":
         from app.services.knowledge import get_index
         print(get_index().train())

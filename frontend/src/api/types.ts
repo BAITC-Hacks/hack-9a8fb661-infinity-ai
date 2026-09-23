@@ -139,3 +139,8 @@ export interface DataObject {
   hours: number; downtime_hours: number; train_hours: number; train_rows: number; train_from: string | null
 }
 export interface DataSummary { storage: string; tz_source: string; objects: DataObject[] }
+
+export interface ExperimentRow { variant: string; name: string; bucket: string; n: number; mae: number; mae_mw: number; bias: number; vs_persistence: number }
+export interface Experiments { period?: string; retrain_days?: number; rows: ExperimentRow[] }
+export interface AnalogDay { issue_date: string; similarity: number; distance: number; mean_wind: number; energy_mwh: number; mean_p: number }
+export interface Analogs { issue_date: string; k: number; candidates: number; method: string; days: AnalogDay[]; energy_mwh: { mean: number; q10: number; q90: number }; error?: string }

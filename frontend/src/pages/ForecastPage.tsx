@@ -3,6 +3,7 @@ import { api } from '../api/client'
 import { FilterBar, type Mode, type View } from '../components/layout/FilterBar'
 import { ChartPanel } from '../features/ChartPanel'
 import { AlertsPanel } from '../features/AlertsPanel'
+import { AnalogsPanel } from '../features/AnalogsPanel'
 import { KpiStrip } from '../features/KpiStrip'
 import { useAsync } from '../hooks/useAsync'
 import { kpis } from '../lib/calc'
@@ -25,6 +26,7 @@ export function ForecastPage({ ctx }: { ctx: Ctx }) {
     .map((d) => api.forecast(d, turbine).then((f) => ({ issue_date: d, rows: f.rows.map((r) => ({ target_time: r.target_time, p_hat: r.p_hat })) })).catch(() => null))), [issueDate, turbine, nPrev, tick])
   const passport = useAsync(() => api.passport(issueDate), [issueDate, tick])
   const alerts = useAsync(() => api.alerts(issueDate, turbine), [issueDate, turbine, tick])
+  const analogs = useAsync(() => api.analogs(issueDate, turbine), [issueDate, turbine])
 
   const rated = ratedOf(turbine)
   const rows = useMemo(() => (forecast.data?.rows ?? []).filter((r) => r.lead_hours <= horizon), [forecast.data, horizon])
@@ -41,7 +43,10 @@ export function ForecastPage({ ctx }: { ctx: Ctx }) {
         <div className="grid gap-4 2xl:grid-cols-[1fr_400px] xl:grid-cols-[1fr_360px]">
           <ChartPanel rows={rows} weather={weather.data ?? []} prevWeather={prevWeather.data ?? []} rated={rated} turbine={turbine} issueDate={issueDate} horizon={horizon}
             view={view} loading={forecast.loading} error={forecast.error} band={band} showFact={mode === 'eval'} prev={prevList} />
-          <AlertsPanel alerts={alerts.data ?? []} summary={forecast.data?.run.summary ?? null} passport={passport.data} llm={llm} loading={alerts.loading} />
+          <div className="space-y-4">
+            <AlertsPanel alerts={alerts.data ?? []} summary={forecast.data?.run.summary ?? null} passport={passport.data} llm={llm} loading={alerts.loading} />
+            <AnalogsPanel a={analogs.data} loading={analogs.loading} />
+          </div>
         </div>
       </main>
     </>

@@ -5,9 +5,15 @@ import pandas as pd
 R_DRY_AIR = 287.05
 RHO_STD = 1.225
 
-FEATURES = ["v_eq", "v_eq2", "v_eq3", "dir_sin", "dir_cos", "gust_ratio", "v_roll3",
-            "v_diff", "temperature_2m", "rho", "hour_sin", "hour_cos", "month", "lead_day",
-            "curve"]
+BASE_FEATURES = ["v_eq", "v_eq2", "v_eq3", "dir_sin", "dir_cos", "gust_ratio", "v_roll3",
+                 "v_diff", "temperature_2m", "rho", "hour_sin", "hour_cos", "month", "lead_day",
+                 "curve"]
+# Погодный контекст соседних часов того же прогона (GEFCom2014, Landry et al., 2016):
+# сдвиг усиления ветра на час-другой раньше/позже модель видит напрямую.
+CONTEXT = [f"v_eq_{s}{k}" for k in (1, 2, 3) for s in ("m", "p")]
+# Эксперимент (python -m app.cli experiments): контекст ухудшил MAE на январе (0.142 → 0.155 на 1–24 ч),
+# гипотеза отклонена — в рабочей модели только базовые признаки.
+FEATURES = BASE_FEATURES
 
 
 def make_features(w: pd.DataFrame) -> pd.DataFrame:
@@ -28,6 +34,9 @@ def make_features(w: pd.DataFrame) -> pd.DataFrame:
     g = x.groupby("lead_day")["v_eq"]
     x["v_roll3"] = g.transform(lambda s: s.rolling(3, center=True, min_periods=1).mean())
     x["v_diff"] = g.diff().fillna(0)
+    for k in (1, 2, 3):   # только значения того же прогноза погоды — будущие прогнозные часы допустимы, факт — нет
+        x[f"v_eq_m{k}"] = g.shift(k)
+        x[f"v_eq_p{k}"] = g.shift(-k)
     hour = x["time"].dt.hour
     x["hour_sin"], x["hour_cos"] = np.sin(2 * np.pi * hour / 24), np.cos(2 * np.pi * hour / 24)
     x["month"] = x["time"].dt.month

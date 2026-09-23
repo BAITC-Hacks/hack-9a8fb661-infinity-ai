@@ -4,7 +4,7 @@ import pandas as pd
 from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.isotonic import IsotonicRegression
 
-from app.ml.features import FEATURES
+from app.ml.features import FEATURES as DEFAULT_FEATURES
 
 BIN_W = 0.25
 V_MAX = 30.0
@@ -40,7 +40,8 @@ class PowerCurve:
 
 
 class WindPowerModel:
-    def __init__(self, max_iter=300, learning_rate=0.05, random_state=0):
+    def __init__(self, max_iter=300, learning_rate=0.05, random_state=0, features=None):
+        self.features = list(features or DEFAULT_FEATURES)
         self.curve = PowerCurve()
         self.reg = HistGradientBoostingRegressor(max_iter=max_iter, learning_rate=learning_rate,
                                                  max_leaf_nodes=31, l2_regularization=1.0,
@@ -52,13 +53,13 @@ class WindPowerModel:
         y = np.asarray(y, float)
         self.curve.fit(X["v_eq"], y)
         X = X.assign(curve=self.curve(X["v_eq"]))
-        self.reg.fit(X[FEATURES], y - X["curve"].to_numpy())
+        self.reg.fit(X[self.features], y - X["curve"].to_numpy())
         self.n_train_ = len(y)
         return self
 
     def predict_parts(self, X: pd.DataFrame):
         c = self.curve(X["v_eq"])
-        res = self.reg.predict(X.assign(curve=c)[FEATURES])
+        res = self.reg.predict(X.assign(curve=c)[self.features])
         return c, np.clip(c + res, 0, 1)
 
     def predict(self, X):

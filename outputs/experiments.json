@@ -1,0 +1,110 @@
+{
+  "period": "2026-01-01..2026-01-30",
+  "retrain_days": 7,
+  "persistence_mae": {
+    "1-24h": 0.3905,
+    "25-48h": 0.3433
+  },
+  "rows": [
+    {
+      "variant": "curve",
+      "name": "Кривая мощности (прогнозный ветер 100 м → мощность)",
+      "bucket": "1-24h",
+      "n": 720,
+      "mae": 0.1486,
+      "mae_mw": 0.743,
+      "bias": -0.0192,
+      "vs_persistence": 0.6195
+    },
+    {
+      "variant": "boost",
+      "name": "+ бустинг остатков (направление, порывы, сезон, час, горизонт)",
+      "bucket": "1-24h",
+      "n": 720,
+      "mae": 0.1424,
+      "mae_mw": 0.712,
+      "bias": 0.0012,
+      "vs_persistence": 0.6354
+    },
+    {
+      "variant": "boost_ctx",
+      "name": "+ погодный контекст ±1–3 ч (GEFCom2014)",
+      "bucket": "1-24h",
+      "n": 720,
+      "mae": 0.1549,
+      "mae_mw": 0.775,
+      "bias": 0.0111,
+      "vs_persistence": 0.6032
+    },
+    {
+      "variant": "analogs",
+      "name": "Analog Ensemble: среднее факта 8 похожих дней",
+      "bucket": "1-24h",
+      "n": 720,
+      "mae": 0.21,
+      "mae_mw": 1.05,
+      "bias": 0.003,
+      "vs_persistence": 0.4621
+    },
+    {
+      "variant": "blend",
+      "name": "Смесь: 0.7 × бустинг с контекстом + 0.3 × аналоги",
+      "bucket": "1-24h",
+      "n": 720,
+      "mae": 0.1659,
+      "mae_mw": 0.83,
+      "bias": 0.0087,
+      "vs_persistence": 0.575
+    },
+    {
+      "variant": "curve",
+      "name": "Кривая мощности (прогнозный ветер 100 м → мощность)",
+      "bucket": "25-48h",
+      "n": 715,
+      "mae": 0.1696,
+      "mae_mw": 0.848,
+      "bias": -0.0124,
+      "vs_persistence": 0.506
+    },
+    {
+      "variant": "boost",
+      "name": "+ бустинг остатков (направление, порывы, сезон, час, горизонт)",
+      "bucket": "25-48h",
+      "n": 715,
+      "mae": 0.1684,
+      "mae_mw": 0.842,
+      "bias": -0.0063,
+      "vs_persistence": 0.5095
+    },
+    {
+      "variant": "boost_ctx",
+      "name": "+ погодный контекст ±1–3 ч (GEFCom2014)",
+      "bucket": "25-48h",
+      "n": 715,
+      "mae": 0.1808,
+      "mae_mw": 0.904,
+      "bias": 0.0067,
+      "vs_persistence": 0.4735
+    },
+    {
+      "variant": "analogs",
+      "name": "Analog Ensemble: среднее факта 8 похожих дней",
+      "bucket": "25-48h",
+      "n": 715,
+      "mae": 0.2235,
+      "mae_mw": 1.118,
+      "bias": 0.0377,
+      "vs_persistence": 0.3489
+    },
+    {
+      "variant": "blend",
+      "name": "Смесь: 0.7 × бустинг с контекстом + 0.3 × аналоги",
+      "bucket": "25-48h",
+      "n": 715,
+      "mae": 0.1874,
+      "mae_mw": 0.937,
+      "bias": 0.016,
+      "vs_persistence": 0.4542
+    }
+  ]
+}

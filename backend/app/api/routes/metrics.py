@@ -39,3 +39,12 @@ def analogs(issue_date: str = Depends(__import__("app.api.deps", fromlist=["issu
     """Похожие исторические ситуации (Analog Ensemble) и их фактическая выработка."""
     from app.services.analogs import find_analogs
     return find_analogs(get_agent().f, issue_date, turbine)
+
+
+@router.get("/experiments")
+def experiments():
+    """Таблица доказательств (outputs/experiments.json, python -m app.cli experiments)."""
+    import json
+    from app.core import config
+    p = config.OUTPUT_DIR / "experiments.json"
+    return json.loads(p.read_text()) if p.exists() else {"rows": []}

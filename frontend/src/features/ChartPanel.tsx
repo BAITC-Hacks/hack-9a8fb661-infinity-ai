@@ -34,7 +34,7 @@ export function ChartPanel(p: Props) {
       const fcMw = r.p_hat * p.rated, factMw = !p.showFact || r.actual == null ? null : r.actual * p.rated
       const row: Record<string, number | string | null> = {
         i, time: r.target_time, fc: fcMw, fact: factMw,
-        lo: Math.max(0, r.p_hat - p.band(r.lead_hours)) * p.rated, hi: Math.min(1, r.p_hat + p.band(r.lead_hours)) * p.rated,
+        lo: r.p_lo == null ? null : r.p_lo * p.rated, hi: r.p_hi == null ? null : r.p_hi * p.rated,
         dev: factMw == null ? null : fcMw - factMw, devPct: factMw == null || r.actual == null ? null : (r.p_hat - r.actual) * 100,
         wind: wx?.wind_speed_100m ?? null, gust: wx?.wind_gusts_10m ?? null, temp: wx?.temperature_2m ?? null,
         dwind: wx?.wind_speed_100m != null && pwx?.wind_speed_100m != null ? wx.wind_speed_100m - pwx.wind_speed_100m : null,
@@ -118,6 +118,7 @@ export function ChartPanel(p: Props) {
               <span className="ml-auto flex items-center gap-4 text-[12px] text-mute">
                 {p.showFact && <span className="flex items-center gap-1.5"><i className="h-[2px] w-4" style={{ background: c.data }} />{t('k_fact')}</span>}
                 <span className="flex items-center gap-1.5"><i className="h-0 w-4" style={{ borderTop: `2px dashed ${c.blue}` }} />{t('k_forecast')}</span>
+                <span className="flex items-center gap-1.5"><i className="h-0 w-4" style={{ borderTop: `1px solid ${c.blue}`, opacity: 0.5 }} />{t('band80')}</span>
                 {cbPrev && p.prev.length > 0 && <span className="flex items-center gap-1.5"><i className="h-0 w-4" style={{ borderTop: `1px dotted ${c.mute}` }} />{t('pp_prev')} ×{p.prev.length}</span>}
               </span>
             </div>
@@ -133,6 +134,8 @@ export function ChartPanel(p: Props) {
                   <YAxis domain={[0, p.rated]} tick={{ fill: c.mute, fontSize: 11, fontFamily: 'ui-monospace, monospace' }} tickLine={false} axisLine={false} width={44}
                     label={{ value: t('mw'), angle: -90, position: 'insideLeft', fill: c.mute, fontSize: 10 }} />
                   <Tooltip content={<Tip c={c} t={t} />} cursor={{ stroke: c.mute, strokeDasharray: '3 3' }} isAnimationActive={false} />
+                  <Line dataKey="hi" stroke={c.blue} strokeOpacity={0.45} strokeWidth={1} dot={false} type="monotone" isAnimationActive={false} />
+                  <Line dataKey="lo" stroke={c.blue} strokeOpacity={0.45} strokeWidth={1} dot={false} type="monotone" isAnimationActive={false} />
                   {cbPrev && p.prev.map((_, k) => <Line key={k} dataKey={`prev${k}`} stroke={c.curve} strokeOpacity={0.35 + 0.5 / (k + 1)} strokeWidth={1} strokeDasharray="2 4" dot={false} type="monotone" isAnimationActive={false} />)}
                   <Line dataKey="fc" stroke={c.blue} strokeWidth={2} strokeDasharray="6 4" dot={false} type="monotone" isAnimationActive animationDuration={900}
                     activeDot={{ r: 4, fill: c.blue, stroke: c.panel, strokeWidth: 2 }}>
@@ -185,6 +188,7 @@ function Tip({ active, payload, c, t }: TipProps) {
     <div className="rounded-lg border border-line bg-panel px-3 py-2 text-[12px] shadow-lg">
       <div className="mb-1 text-mute">{ddmm(String(d.time))} {hhmm(String(d.time))}</div>
       {row(t('k_forecast'), `${fmt(d.fc as number, 2)} ${t('mw')}`, c.blue)}
+      {d.lo != null && row('Q10–Q90', `${fmt(d.lo as number, 2)}–${fmt(d.hi as number, 2)} ${t('mw')}`, c.blue)}
       {d.fact != null && row(t('k_fact'), `${fmt(d.fact as number, 2)} ${t('mw')}`, c.data)}
       {d.prev0 != null && row(t('pp_prev'), `${fmt(d.prev0 as number, 2)} ${t('mw')}`, c.curve)}
       {d.wind != null && row(t('layer_wind'), fmt(d.wind as number, 1), c.mute)}

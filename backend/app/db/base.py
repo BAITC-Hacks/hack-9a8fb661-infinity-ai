@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 import pandas as pd
 
 FC_COLS = ["run_id", "issue_date", "target_time", "lead_hours", "turbine", "p_hat", "p_curve",
-           "v_eq", "actual", "baseline"]
+           "v_eq", "actual", "baseline", "p_lo", "p_hi"]
 METRIC_COLS = ["run_id", "issue_date", "turbine", "bucket", "n", "mae", "rmse", "mae_base",
                "skill"]
 RUN_COLS = ["id", "created_at", "issue_date", "mode", "status", "model_trained_until",

@@ -26,6 +26,8 @@ class ForecastRow(BaseModel):
     v_eq: float | None = None
     actual: float | None = None
     baseline: float | None = None
+    p_lo: float | None = None
+    p_hi: float | None = None
 
 
 class ForecastResponse(BaseModel):

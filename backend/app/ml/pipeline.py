@@ -65,13 +65,16 @@ class Forecaster:
         ok = w.dropna(subset=["v_eq"])
         parts = []
         for tid, m in self.models.items():
-            curve, p = m.predict_parts(ok)
+            curve, p, lo, hi = m.predict_interval(ok)
             parts.append(pd.DataFrame({"target_time": ok["time"].values,
                                        "lead_hours": ok["lead_hours"].values, "turbine": tid,
-                                       "p_hat": p, "p_curve": curve, "v_eq": ok["v_eq"].values}))
+                                       "p_hat": p, "p_curve": curve, "v_eq": ok["v_eq"].values,
+                                       "p_lo": lo, "p_hi": hi}))
         fc = pd.concat(parts, ignore_index=True)
+        # станция: среднее квантилей турбин — консервативная оценка (ошибки турбин почти полностью
+        # коррелированы общей погодой, простое сложение квантилей независимых величин было бы неверным)
         st = fc.groupby(["target_time", "lead_hours"], as_index=False)[
-            ["p_hat", "p_curve", "v_eq"]].mean()
+            ["p_hat", "p_curve", "v_eq", "p_lo", "p_hi"]].mean()
         st["turbine"] = "STATION"
         fc = pd.concat([fc, st], ignore_index=True)
         fc["target_time"] = pd.to_datetime(fc["target_time"], utc=True)

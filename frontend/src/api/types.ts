@@ -22,6 +22,8 @@ export interface ForecastRow {
   v_eq: number | null
   actual: number | null
   baseline: number | null
+  p_lo?: number | null
+  p_hi?: number | null
 }
 
 export interface ForecastResponse { run: Run; rows: ForecastRow[] }
@@ -42,6 +44,7 @@ export interface MetricsResponse {
   by_turbine_and_horizon: MetricRow[]
   station_by_issue_date: MetricRow[]
   daily: DailyError[]
+  coverage?: { turbine: string; bucket: string; n: number; coverage: number; width: number }[]
 }
 
 export interface AgentLogEntry {

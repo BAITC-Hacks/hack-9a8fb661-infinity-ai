@@ -87,13 +87,16 @@ CH_SCHEMA = [
     WIND_ACTUALS_DDL,
     WIND_GAPS_DDL,
     KNOWLEDGE_DDL,
+    "ALTER TABLE forecasts ADD COLUMN IF NOT EXISTS p_lo Nullable(Float32)",
+    "ALTER TABLE forecasts ADD COLUMN IF NOT EXISTS p_hi Nullable(Float32)",
     """CREATE TABLE IF NOT EXISTS runs (id UInt64, created_at DateTime('UTC'), issue_date Date,
        mode LowCardinality(String), status LowCardinality(String), model_trained_until String,
        weather_signature Float64, summary String) ENGINE = MergeTree ORDER BY (issue_date, id)""",
     """CREATE TABLE IF NOT EXISTS forecasts (run_id UInt64, issue_date Date,
        target_time DateTime('UTC'), lead_hours UInt8, turbine LowCardinality(String),
        p_hat Float32, p_curve Nullable(Float32), v_eq Nullable(Float32),
-       actual Nullable(Float32), baseline Nullable(Float32))
+       actual Nullable(Float32), baseline Nullable(Float32),
+       p_lo Nullable(Float32), p_hi Nullable(Float32))
        ENGINE = MergeTree PARTITION BY toYYYYMM(issue_date)
        ORDER BY (issue_date, turbine, run_id, target_time)""",
     """CREATE TABLE IF NOT EXISTS metrics (run_id UInt64, issue_date Date,

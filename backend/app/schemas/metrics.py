@@ -37,3 +37,4 @@ class MetricsResponse(BaseModel):
     by_turbine_and_horizon: list[MetricRow] = []
     station_by_issue_date: list[MetricRow] = []
     daily: list[DailyError] = []
+    coverage: list[dict] = []

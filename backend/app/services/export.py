@@ -11,13 +11,36 @@ def overall_metrics(fc) -> dict:
     if fc.empty:
         return {}
     fc = fc.astype({"actual": float, "baseline": float, "p_hat": float})
+    for c in ("p_lo", "p_hi"):
+        if c in fc:
+            fc[c] = fc[c].astype(float)
     return {
         "note": "Факт есть до 2026-01-31 23:00 UTC; февральские выпуски без факта не оцениваются.",
         "by_turbine_and_horizon": summarize(fc).round(4).to_dict("records"),
         "station_by_issue_date": summarize(fc[fc["turbine"] == "STATION"], by=("issue_date",))
         .round(4).to_dict("records"),
         "daily": daily_errors(fc),
+        "coverage": coverage(fc),
     }
+
+
+def coverage(fc) -> list[dict]:
+    """Доля фактов внутри диапазона Q10–Q90 (цель ≈ 80 %) и средняя ширина, по горизонтам."""
+    import numpy as np
+    if "p_lo" not in fc:
+        return []
+    d = fc.dropna(subset=["actual", "p_lo", "p_hi"]).copy()
+    if d.empty:
+        return []
+    for c in ("actual", "p_lo", "p_hi"):
+        d[c] = d[c].astype(float)
+    d["bucket"] = np.where(d["lead_hours"].astype(int) <= 24, "1-24h", "25-48h")
+    out = []
+    for (tb, b), g in d.groupby(["turbine", "bucket"]):
+        inside = ((g["actual"] >= g["p_lo"]) & (g["actual"] <= g["p_hi"])).mean()
+        out.append({"turbine": tb, "bucket": b, "n": int(len(g)), "coverage": round(float(inside), 3),
+                    "width": round(float((g["p_hi"] - g["p_lo"]).mean()), 3)})
+    return out
 
 
 def daily_errors(fc) -> list[dict]:

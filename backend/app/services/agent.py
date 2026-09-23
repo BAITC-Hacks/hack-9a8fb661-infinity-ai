@@ -199,5 +199,5 @@ def _records(fc: pd.DataFrame):
     x["target_time"] = x["target_time"].dt.strftime("%Y-%m-%dT%H:%M:%SZ")
     x = x.replace({np.nan: None})
     cols = ["issue_date", "target_time", "lead_hours", "turbine", "p_hat", "p_curve", "v_eq",
-            "actual", "baseline"]
+            "actual", "baseline", "p_lo", "p_hi"]
     return x[cols].to_dict("records")

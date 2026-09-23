@@ -59,6 +59,17 @@ export function AnalyticsPage({ ctx }: { ctx: Ctx }) {
 
       <Section title={t('ev_title')} desc={t('ev_desc')}><EvidencePanel e={exps.data} /></Section>
 
+      <Section title={t('cov_title')} desc={t('cov_desc')}>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {(metrics.data?.coverage ?? []).filter((c) => c.turbine === turbine).map((c, i) => (
+            <div key={c.bucket} className="panel pop" style={{ animationDelay: `${i * 80}ms` }}>
+              <div className="text-[13px] text-mute">{c.bucket} · {t('cov_hit')}</div>
+              <div className={`num font-mono text-[26px] font-bold ${Math.abs(c.coverage - 0.8) <= 0.07 ? 'text-good' : 'text-warn'}`}>{Math.round(c.coverage * 100)}%</div>
+              <div className="text-[11px] text-mute">{t('cov_width')} {(c.width * ratedOf(turbine)).toFixed(2)} {t('mw')} · n={c.n}</div>
+            </div>))}
+        </div>
+      </Section>
+
       <div className="grid gap-8 lg:grid-cols-2">
         <Section title={t('an_phys')} desc={t('an_phys_d')}><PowerCurvePanel data={curve.data} error={curve.error} /></Section>
         <Section title={t('an_data')} desc={t('an_data_d')}>

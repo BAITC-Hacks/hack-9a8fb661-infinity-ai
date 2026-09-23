@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS runs (id INTEGER PRIMARY KEY, created_at TEXT, issue_
   mode TEXT, status TEXT, model_trained_until TEXT, weather_signature REAL, summary TEXT);
 CREATE TABLE IF NOT EXISTS forecasts (run_id INTEGER, issue_date TEXT, target_time TEXT,
   lead_hours INTEGER, turbine TEXT, p_hat REAL, p_curve REAL, v_eq REAL, actual REAL,
-  baseline REAL, PRIMARY KEY (run_id, target_time, turbine));
+  baseline REAL, p_lo REAL, p_hi REAL, PRIMARY KEY (run_id, target_time, turbine));
 CREATE INDEX IF NOT EXISTS ix_fc_issue ON forecasts(issue_date, turbine);
 CREATE TABLE IF NOT EXISTS metrics (run_id INTEGER, issue_date TEXT, turbine TEXT, bucket TEXT,
   n INTEGER, mae REAL, rmse REAL, mae_base REAL, skill REAL);
@@ -56,6 +56,11 @@ class SqliteStore(Store):
         try:
             con.execute("PRAGMA journal_mode = WAL")
             con.executescript(SQLITE_SCHEMA)
+            for col in ("p_lo", "p_hi"):          # миграция старой БД
+                try:
+                    con.execute(f"ALTER TABLE forecasts ADD COLUMN {col} REAL")
+                except sqlite3.OperationalError:
+                    pass
             con.executemany("INSERT OR REPLACE INTO wind_objects VALUES (?,?,?,?,?,?,?,?,?,?)",
                             [(o.object_id, o.name, o.lat, o.lon, o.rated_power_mw,
                               o.tower_height_m, o.rotor_diameter_m, o.model,

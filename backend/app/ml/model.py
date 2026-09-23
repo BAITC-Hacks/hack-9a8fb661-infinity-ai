@@ -46,6 +46,10 @@ class WindPowerModel:
         self.reg = HistGradientBoostingRegressor(max_iter=max_iter, learning_rate=learning_rate,
                                                  max_leaf_nodes=31, l2_regularization=1.0,
                                                  random_state=random_state)
+        # квантильный бустинг остатков (Landry et al., 2016): нижняя и верхняя границы диапазона 80 %
+        self.quant = {q: HistGradientBoostingRegressor(loss="quantile", quantile=q, max_iter=200,
+                                                       learning_rate=learning_rate, max_leaf_nodes=31,
+                                                       random_state=random_state) for q in (0.1, 0.9)}
 
     def fit(self, X: pd.DataFrame, y):
         """X — признаки make_features (без столбца curve), y — факт мощности.
@@ -53,7 +57,10 @@ class WindPowerModel:
         y = np.asarray(y, float)
         self.curve.fit(X["v_eq"], y)
         X = X.assign(curve=self.curve(X["v_eq"]))
-        self.reg.fit(X[self.features], y - X["curve"].to_numpy())
+        resid = y - X["curve"].to_numpy()
+        self.reg.fit(X[self.features], resid)
+        for m in self.quant.values():
+            m.fit(X[self.features], resid)
         self.n_train_ = len(y)
         return self
 
@@ -61,6 +68,14 @@ class WindPowerModel:
         c = self.curve(X["v_eq"])
         res = self.reg.predict(X.assign(curve=c)[self.features])
         return c, np.clip(c + res, 0, 1)
+
+    def predict_interval(self, X: pd.DataFrame):
+        """Q10 и Q90 мощности; монотонность гарантируется: lo ≤ p ≤ hi."""
+        c, p = self.predict_parts(X)
+        Xc = X.assign(curve=c)[self.features]
+        lo = np.clip(c + self.quant[0.1].predict(Xc), 0, 1)
+        hi = np.clip(c + self.quant[0.9].predict(Xc), 0, 1)
+        return c, p, np.minimum(lo, p), np.maximum(hi, p)
 
     def predict(self, X):
         return self.predict_parts(X)[1]
